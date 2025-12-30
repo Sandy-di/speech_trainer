@@ -66,6 +66,11 @@
         color: var(--primary-color);
         margin: 0;
     }
+    .record-meta {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
     .record-time {
         font-size: 0.85rem;
         color: #999;
@@ -79,6 +84,21 @@
         width: 100%;
         height: 40px;
         filter: drop-shadow(0 2px 3px rgba(0,0,0,0.05));
+    }
+    
+    .btn-delete-sm {
+        background: transparent;
+        border: 1px solid #e74c3c;
+        color: #e74c3c;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .btn-delete-sm:hover {
+        background: #e74c3c;
+        color: white;
     }
     
     .empty-state {
@@ -114,10 +134,13 @@
         </div>
         
         {% for record in records %}
-        <div class="record-card">
+        <div class="record-card" id="record-{{ record.id }}">
             <div class="record-header">
                 <h5 class="exercise-title">{{ record.exercise.title }}</h5>
-                <span class="record-time">{{ record.submitted_at|date:"H:i" }}</span>
+                <div class="record-meta">
+                    <span class="record-time">{{ record.submitted_at|date:"H:i" }}</span>
+                    <button class="btn-delete-sm" onclick="deleteRecord({{ record.id }})">🗑️ 删除</button>
+                </div>
             </div>
             <div class="audio-player-wrapper">
                 <audio controls src="{{ record.student_audio.url }}" preload="none"></audio>
@@ -136,5 +159,42 @@
     </div>
 {% endif %}
 
-{% endblock %}
+<script>
+function deleteRecord(recordId) {
+    if (!confirm('确定要删除这条录音吗？删除后无法恢复。')) return;
+    
+    fetch(`/api/delete_record/${recordId}/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        }
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === 'success') {
+            // 移除卡片并刷新页面
+            const card = document.getElementById(`record-${recordId}`);
+            if (card) {
+                card.style.opacity = '0';
+                card.style.transform = 'translateX(-20px)';
+                setTimeout(() => {
+                    card.remove();
+                    // 检查是否还有录音，如果没有则刷新页面显示空状态
+                    if (document.querySelectorAll('.record-card').length === 0) {
+                        location.reload();
+                    }
+                }, 300);
+            }
+        } else {
+            alert('删除失败: ' + data.msg);
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        alert('网络错误，请稍后重试');
+    });
+}
+</script>
 
+{% endblock %}

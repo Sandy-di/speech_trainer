@@ -10,10 +10,13 @@ from .forms import ChineseUserCreationForm, AnnouncementForm
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, HttpResponse, Http404
-from django.db.models import Max
+from django.db.models import Max, Q
 
 # 引入我们定义的数据模型
-from .models import Exercise, PracticeRecord, DailyCheckIn, Announcement, ReadRecord
+from .models import (
+    Exercise, PracticeRecord, DailyCheckIn, Announcement, ReadRecord,
+    StudentProfile, Achievement, StudentAchievement, BuddyPair, Encouragement
+)
 
 # ==========================================
 # 工具函数
@@ -22,6 +25,130 @@ def get_week_start():
     today = timezone.localdate()
     start = today - datetime.timedelta(days=today.weekday())
     return start
+
+def get_or_create_profile(user):
+    """获取或创建学员游戏档案"""
+    profile, created = StudentProfile.objects.get_or_create(user=user)
+    return profile
+
+def add_experience(user, exp_amount, reason="练习"):
+    """为用户增加经验值并检查成就"""
+    profile = get_or_create_profile(user)
+    profile.experience_points += exp_amount
+    profile.update_level()
+    profile.save()
+    
+    # 检查经验值相关成就
+    check_achievements(user, profile)
+    return profile
+
+def update_practice_streak(user):
+    """更新连续练习天数"""
+    profile = get_or_create_profile(user)
+    today = timezone.localdate()
+    
+    if profile.last_practice_date is None:
+        # 首次练习
+        profile.streak_days = 1
+        profile.total_practice_days = 1
+    elif profile.last_practice_date == today:
+        # 今天已经练习过，不重复计算
+        pass
+    elif profile.last_practice_date == today - datetime.timedelta(days=1):
+        # 连续练习
+        profile.streak_days += 1
+        profile.total_practice_days += 1
+    else:
+        # 断了，重新开始
+        profile.streak_days = 1
+        profile.total_practice_days += 1
+    
+    profile.last_practice_date = today
+    profile.save()
+    
+    # 计算连续天数奖励经验 (最高50)
+    streak_bonus = min(profile.streak_days * 5, 50)
+    
+    # 检查连续天数相关成就
+    check_achievements(user, profile)
+    
+    return profile, streak_bonus
+
+def check_achievements(user, profile):
+    """检查并解锁成就"""
+    unlocked = []
+    all_achievements = Achievement.objects.all()
+    
+    for achievement in all_achievements:
+        # 检查是否已获得
+        if StudentAchievement.objects.filter(student=user, achievement=achievement).exists():
+            continue
+        
+        # 根据条件类型检查
+        earned = False
+        if achievement.condition_type == 'streak' and profile.streak_days >= achievement.condition_value:
+            earned = True
+        elif achievement.condition_type == 'total_days' and profile.total_practice_days >= achievement.condition_value:
+            earned = True
+        elif achievement.condition_type == 'exp' and profile.experience_points >= achievement.condition_value:
+            earned = True
+        elif achievement.condition_type == 'recordings' and profile.total_recordings >= achievement.condition_value:
+            earned = True
+        elif achievement.condition_type == 'level' and profile.level >= achievement.condition_value:
+            earned = True
+        elif achievement.condition_type == 'first' and profile.total_recordings >= 1:
+            earned = True
+        
+        if earned:
+            StudentAchievement.objects.create(student=user, achievement=achievement)
+            # 成就奖励经验
+            profile.experience_points += achievement.exp_reward
+            profile.save()
+            unlocked.append(achievement)
+    
+    return unlocked
+
+def get_buddy_info(user):
+    """获取伙伴信息"""
+    pair = BuddyPair.objects.filter(
+        Q(student_a=user) | Q(student_b=user),
+        is_active=True
+    ).first()
+    
+    if not pair:
+        return None
+    
+    buddy = pair.get_buddy(user)
+    if not buddy:
+        return None
+    
+    # 获取伙伴今日练习进度
+    today = timezone.localdate()
+    buddy_records_today = PracticeRecord.objects.filter(
+        student=buddy,
+        submitted_at__date=today
+    ).count()
+    
+    total_exercises = Exercise.objects.count()
+    
+    # 获取伙伴的游戏档案
+    buddy_profile = get_or_create_profile(buddy)
+    
+    # 获取未读鼓励消息数
+    unread_count = Encouragement.objects.filter(
+        pair=pair,
+        sender=buddy,
+        is_read=False
+    ).count()
+    
+    return {
+        'buddy': buddy,
+        'pair': pair,
+        'profile': buddy_profile,
+        'today_progress': buddy_records_today,
+        'total_exercises': total_exercises,
+        'unread_encouragements': unread_count,
+    }
 
 # ==========================================
 # 第一部分：电脑网页版视图
@@ -58,6 +185,13 @@ def student_dashboard(request):
         submitted_at__date=today
     ).select_related('student', 'exercise').order_by('-submitted_at')[:8]
 
+    # 游戏化信息
+    profile = get_or_create_profile(request.user)
+    achievements_count = StudentAchievement.objects.filter(student=request.user).count()
+    
+    # 伙伴信息
+    buddy_info = get_buddy_info(request.user)
+
     context = {
         'exercises': exercises,
         'completed_ids': completed_ids,
@@ -69,6 +203,13 @@ def student_dashboard(request):
         'total_today_checkins': total_today_checkins,
         'latest_records': latest_records,
         'latest_announcement': Announcement.objects.first(),
+        # 游戏化数据
+        'profile': profile,
+        'achievements_count': achievements_count,
+        'exp_progress': profile.exp_progress(),
+        'exp_for_next': profile.exp_for_next_level(),
+        # 伙伴数据
+        'buddy_info': buddy_info,
     }
     return render(request, 'training/dashboard.html', context)
 
@@ -357,50 +498,21 @@ def teacher_student_history(request, student_id):
 
 def api_test(request): return JsonResponse({'status': 'success'})
 
-# 🔥🔥🔥 新增：标记完成（不上传录音） 🔥🔥🔥
+# 删除历史录音记录
 @csrf_exempt
 @login_required
-def api_mark_practice_complete(request):
+def api_delete_practice_record(request, record_id):
+    """删除历史录音记录"""
     if request.method == 'POST':
         try:
-            data = json.loads(request.body)
-            exercise_id = data.get('exercise_id')
-            user = request.user
-
-            exercise = Exercise.objects.get(id=exercise_id)
-            today = timezone.localdate()
-            start_of_week = get_week_start()
-
-            # 确保今日有打卡记录
-            daily_checkin_today, _ = DailyCheckIn.objects.get_or_create(
-                student=user, date=today, defaults={'is_submitted': False}
-            )
-
-            # 检查本周是否已有记录
-            existing_record = PracticeRecord.objects.filter(
-                student=user,
-                exercise=exercise,
-                submitted_at__date__gte=start_of_week
-            ).first()
-
-            if existing_record:
-                # 3a. 如果已有记录 (无论是否有录音)，只更新时间，表示"今天也练了"
-                # 重点：不覆盖原有的录音文件
-                existing_record.submitted_at = timezone.now()
-                existing_record.daily_checkin = daily_checkin_today
-                existing_record.save()
-                msg = '已更新进度'
-            else:
-                # 3b. 如果本周没记录，创建一条"无录音"的记录
-                PracticeRecord.objects.create(
-                    student=user,
-                    exercise=exercise,
-                    student_audio=None, # 没有文件
-                    daily_checkin=daily_checkin_today
-                )
-                msg = '已标记为完成'
-
-            return JsonResponse({'status': 'success', 'msg': msg})
+            record = PracticeRecord.objects.get(id=record_id, student=request.user)
+            # 删除关联的音频文件
+            if record.student_audio:
+                record.student_audio.delete(save=False)
+            record.delete()
+            return JsonResponse({'status': 'success', 'msg': '录音已删除'})
+        except PracticeRecord.DoesNotExist:
+            return JsonResponse({'status': 'error', 'msg': '记录不存在'})
         except Exception as e:
             return JsonResponse({'status': 'error', 'msg': str(e)})
     return JsonResponse({'status': 'error', 'msg': 'POST only'})
@@ -433,6 +545,8 @@ def api_upload_practice(request):
                 submitted_at__date__gte=start_of_week
             ).first()
 
+            is_new_recording = existing_record is None
+
             if existing_record:
                 existing_record.student_audio = audio_file
                 existing_record.submitted_at = timezone.now()
@@ -448,7 +562,44 @@ def api_upload_practice(request):
                 )
                 msg = '上传成功，设为本周最佳！'
 
-            return JsonResponse({'status': 'success', 'msg': msg})
+            # ==========================================
+            # 游戏化逻辑
+            # ==========================================
+            profile = get_or_create_profile(user)
+            exp_earned = 0
+            
+            # 1. 基础经验：每次录音 +10 XP
+            exp_earned += 10
+            
+            # 2. 更新连续练习天数并获取奖励
+            profile, streak_bonus = update_practice_streak(user)
+            exp_earned += streak_bonus
+            
+            # 3. 新录音增加录音计数
+            if is_new_recording:
+                profile.total_recordings += 1
+                profile.save()
+            
+            # 4. 检查是否完成今日所有练习（额外奖励）
+            total_exercises = Exercise.objects.count()
+            today_records = PracticeRecord.objects.filter(
+                student=user,
+                submitted_at__date=today
+            ).values('exercise_id').distinct().count()
+            
+            if today_records >= total_exercises:
+                exp_earned += 30  # 完成所有练习额外奖励
+            
+            # 5. 添加经验值
+            add_experience(user, exp_earned)
+            
+            # 返回带经验值信息的响应
+            return JsonResponse({
+                'status': 'success', 
+                'msg': msg,
+                'exp_earned': exp_earned,
+                'streak_days': profile.streak_days
+            })
         except Exception as e: return JsonResponse({'status': 'error', 'msg': str(e)})
     return JsonResponse({'status': 'error'})
 
@@ -578,3 +729,126 @@ def announcement_stats(request, announcement_id):
         'read_count': len(read_list),
         'total_count': all_students.count()
     })
+
+
+# ==========================================
+# 互帮系统 API
+# ==========================================
+
+@csrf_exempt
+@login_required
+def api_send_encouragement(request):
+    """发送鼓励消息给伙伴"""
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            message = data.get('message', '').strip()
+            
+            if not message:
+                return JsonResponse({'status': 'error', 'msg': '消息不能为空'})
+            
+            if len(message) > 500:
+                return JsonResponse({'status': 'error', 'msg': '消息太长，最多500字'})
+            
+            # 获取配对信息
+            pair = BuddyPair.objects.filter(
+                Q(student_a=request.user) | Q(student_b=request.user),
+                is_active=True
+            ).first()
+            
+            if not pair:
+                return JsonResponse({'status': 'error', 'msg': '您还没有配对伙伴'})
+            
+            # 创建鼓励消息
+            Encouragement.objects.create(
+                pair=pair,
+                sender=request.user,
+                message=message
+            )
+            
+            return JsonResponse({'status': 'success', 'msg': '鼓励消息已发送！'})
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'msg': str(e)})
+    return JsonResponse({'status': 'error', 'msg': 'POST only'})
+
+
+@login_required
+def api_get_encouragements(request):
+    """获取收到的鼓励消息"""
+    pair = BuddyPair.objects.filter(
+        Q(student_a=request.user) | Q(student_b=request.user),
+        is_active=True
+    ).first()
+    
+    if not pair:
+        return JsonResponse({'status': 'success', 'messages': []})
+    
+    buddy = pair.get_buddy(request.user)
+    
+    # 获取来自伙伴的未读消息
+    messages = Encouragement.objects.filter(
+        pair=pair,
+        sender=buddy,
+        is_read=False
+    ).order_by('-created_at')[:10]
+    
+    messages_data = [{
+        'id': m.id,
+        'message': m.message,
+        'time': m.created_at.strftime('%m-%d %H:%M')
+    } for m in messages]
+    
+    return JsonResponse({
+        'status': 'success',
+        'messages': messages_data,
+        'buddy_name': buddy.username
+    })
+
+
+@csrf_exempt
+@login_required
+def api_mark_encouragement_read(request, msg_id):
+    """标记鼓励消息为已读"""
+    if request.method == 'POST':
+        try:
+            msg = Encouragement.objects.get(id=msg_id)
+            # 验证这条消息是发给当前用户的
+            buddy = msg.pair.get_buddy(msg.sender)
+            if buddy != request.user:
+                return JsonResponse({'status': 'error', 'msg': '无权操作'})
+            
+            msg.is_read = True
+            msg.save()
+            return JsonResponse({'status': 'success'})
+        except Encouragement.DoesNotExist:
+            return JsonResponse({'status': 'error', 'msg': '消息不存在'})
+    return JsonResponse({'status': 'error', 'msg': 'POST only'})
+
+
+@login_required
+def achievements_page(request):
+    """成就墙页面"""
+    profile = get_or_create_profile(request.user)
+    
+    # 获取所有成就
+    all_achievements = Achievement.objects.all()
+    
+    # 获取用户已解锁的成就
+    earned_ids = set(StudentAchievement.objects.filter(
+        student=request.user
+    ).values_list('achievement_id', flat=True))
+    
+    achievements_list = []
+    for ach in all_achievements:
+        achievements_list.append({
+            'achievement': ach,
+            'earned': ach.id in earned_ids
+        })
+    
+    return render(request, 'training/achievements.html', {
+        'profile': profile,
+        'achievements_list': achievements_list,
+        'earned_count': len(earned_ids),
+        'total_count': all_achievements.count()
+    })
+

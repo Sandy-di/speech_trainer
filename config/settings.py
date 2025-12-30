@@ -27,7 +27,7 @@ SECRET_KEY = 'django-insecure-s1xx_*u2klpra+hqtdw)y3na*+cq^r*t9^7+hah7dv9=j#!0rq
 DEBUG = True
 
 # 1. 确保域名和 IP 都在列表里
-ALLOWED_HOSTS = ['abc.chinawhw.cn', '114.132.43.189', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['abc.chinawhw.cn', '114.132.43.189', 'localhost', '127.0.0.1', '192.168.2.147']
 
 # 2. 必须包含 https 协议头，这是 Django 4.x/5.x 的强制要求
 CSRF_TRUSTED_ORIGINS = [

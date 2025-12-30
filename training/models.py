@@ -94,3 +94,138 @@ class ReadRecord(models.Model):
         verbose_name = "阅读记录"
         verbose_name_plural = "阅读记录"
         unique_together = ('announcement', 'student')
+
+
+# ==========================================
+# 5. 游戏化系统模型
+# ==========================================
+
+class StudentProfile(models.Model):
+    """学员游戏化档案"""
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='game_profile')
+    experience_points = models.IntegerField("经验值", default=0)
+    level = models.IntegerField("等级", default=1)
+    streak_days = models.IntegerField("连续练习天数", default=0)
+    last_practice_date = models.DateField("上次练习日期", null=True, blank=True)
+    total_practice_days = models.IntegerField("累计练习天数", default=0)
+    total_recordings = models.IntegerField("累计录音数", default=0)
+    
+    def calculate_level(self):
+        """根据经验值计算等级: level = floor(sqrt(exp / 100)) + 1"""
+        import math
+        return int(math.floor(math.sqrt(self.experience_points / 100))) + 1
+    
+    def update_level(self):
+        """更新等级"""
+        new_level = self.calculate_level()
+        if new_level != self.level:
+            self.level = new_level
+            self.save()
+            return True  # 表示升级了
+        return False
+    
+    def exp_for_next_level(self):
+        """下一级所需经验值"""
+        return (self.level ** 2) * 100
+    
+    def exp_progress(self):
+        """当前等级进度百分比"""
+        current_level_exp = ((self.level - 1) ** 2) * 100
+        next_level_exp = (self.level ** 2) * 100
+        progress = (self.experience_points - current_level_exp) / (next_level_exp - current_level_exp) * 100
+        return min(100, max(0, progress))
+    
+    def __str__(self):
+        return f"{self.user.username} - Lv.{self.level} ({self.experience_points} XP)"
+    
+    class Meta:
+        verbose_name = "学员档案"
+        verbose_name_plural = "学员档案"
+
+
+class Achievement(models.Model):
+    """成就定义"""
+    CONDITION_TYPES = [
+        ('streak', '连续天数'),
+        ('total_days', '累计天数'),
+        ('exp', '经验值'),
+        ('recordings', '录音数量'),
+        ('level', '等级'),
+        ('first', '首次完成'),
+    ]
+    
+    name = models.CharField("成就名称", max_length=100)
+    description = models.TextField("成就描述")
+    icon = models.CharField("图标", max_length=50, default="🏆")
+    condition_type = models.CharField("条件类型", max_length=50, choices=CONDITION_TYPES)
+    condition_value = models.IntegerField("条件值", default=1)
+    exp_reward = models.IntegerField("经验奖励", default=50)
+    order = models.IntegerField("排序", default=0)
+    
+    def __str__(self):
+        return f"{self.icon} {self.name}"
+    
+    class Meta:
+        verbose_name = "成就"
+        verbose_name_plural = "成就"
+        ordering = ['order', 'id']
+
+
+class StudentAchievement(models.Model):
+    """学员获得的成就"""
+    student = models.ForeignKey(User, on_delete=models.CASCADE, related_name='achievements')
+    achievement = models.ForeignKey(Achievement, on_delete=models.CASCADE)
+    earned_at = models.DateTimeField("获得时间", auto_now_add=True)
+    
+    def __str__(self):
+        return f"{self.student.username} - {self.achievement.name}"
+    
+    class Meta:
+        verbose_name = "学员成就"
+        verbose_name_plural = "学员成就"
+        unique_together = ('student', 'achievement')
+
+
+# ==========================================
+# 6. 互帮系统模型
+# ==========================================
+
+class BuddyPair(models.Model):
+    """互帮配对"""
+    student_a = models.ForeignKey(User, on_delete=models.CASCADE, related_name='buddy_as_a', verbose_name="学员A")
+    student_b = models.ForeignKey(User, on_delete=models.CASCADE, related_name='buddy_as_b', verbose_name="学员B")
+    created_at = models.DateTimeField("配对时间", auto_now_add=True)
+    is_active = models.BooleanField("是否有效", default=True)
+    
+    def get_buddy(self, user):
+        """获取伙伴"""
+        if user == self.student_a:
+            return self.student_b
+        elif user == self.student_b:
+            return self.student_a
+        return None
+    
+    def __str__(self):
+        return f"{self.student_a.username} ↔ {self.student_b.username}"
+    
+    class Meta:
+        verbose_name = "互帮配对"
+        verbose_name_plural = "互帮配对"
+
+
+class Encouragement(models.Model):
+    """鼓励消息"""
+    pair = models.ForeignKey(BuddyPair, on_delete=models.CASCADE, related_name='encouragements', verbose_name="配对")
+    sender = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="发送者")
+    message = models.TextField("鼓励消息", max_length=500)
+    created_at = models.DateTimeField("发送时间", auto_now_add=True)
+    is_read = models.BooleanField("是否已读", default=False)
+    
+    def __str__(self):
+        return f"{self.sender.username}: {self.message[:20]}..."
+    
+    class Meta:
+        verbose_name = "鼓励消息"
+        verbose_name_plural = "鼓励消息"
+        ordering = ['-created_at']
+

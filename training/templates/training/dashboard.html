@@ -88,6 +88,125 @@
         40%, 60%, 80% {transform: scale(1.1) rotate(-3deg);}
         100% {transform: scale(1) rotate(0);}
     }
+    
+    /* === 游戏化状态栏 === */
+    .game-stats-bar {
+        background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+        border-radius: 15px;
+        padding: 15px 20px;
+        margin-bottom: 20px;
+        color: white;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+    }
+    .game-stats-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    .level-badge {
+        background: linear-gradient(135deg, var(--accent-color), #bfa15f);
+        padding: 6px 16px;
+        border-radius: 20px;
+        font-weight: 700;
+        font-size: 0.9rem;
+        letter-spacing: 1px;
+    }
+    .exp-bar-container {
+        flex: 1;
+        max-width: 200px;
+        margin: 0 15px;
+    }
+    .exp-bar {
+        height: 8px;
+        background: rgba(255,255,255,0.2);
+        border-radius: 10px;
+        overflow: hidden;
+    }
+    .exp-bar-fill {
+        height: 100%;
+        background: linear-gradient(to right, var(--accent-color), #f1c40f);
+        border-radius: 10px;
+        transition: width 0.5s ease;
+    }
+    .exp-text {
+        font-size: 0.75rem;
+        color: rgba(255,255,255,0.7);
+        margin-top: 3px;
+    }
+    .game-mini-stats {
+        display: flex;
+        gap: 15px;
+        font-size: 0.85rem;
+    }
+    .mini-stat {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    .mini-stat-icon {
+        font-size: 1rem;
+    }
+    
+    /* === 伙伴卡片 === */
+    .buddy-card {
+        background: linear-gradient(135deg, #fff 0%, #fdfbf7 100%);
+        border-radius: 15px;
+        padding: 15px 20px;
+        margin-bottom: 20px;
+        border: 1px solid rgba(212, 175, 55, 0.2);
+        box-shadow: var(--shadow-light);
+    }
+    .buddy-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 12px;
+    }
+    .buddy-title {
+        font-size: 0.9rem;
+        color: #666;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .buddy-name {
+        font-weight: 700;
+        color: var(--primary-color);
+    }
+    .buddy-status {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 0.85rem;
+        color: #888;
+    }
+    .buddy-progress {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    .buddy-streak {
+        display: flex;
+        align-items: center;
+        gap: 3px;
+        color: #e67e22;
+    }
+    .btn-encourage {
+        background: linear-gradient(135deg, #e74c3c, #c0392b);
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .btn-encourage:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 10px rgba(231, 76, 60, 0.3);
+    }
 </style>
 
 <div class="toast-container">
@@ -99,6 +218,55 @@
 
 <div class="row justify-content-center">
     <div class="col-md-8 col-lg-6">
+
+        <!-- 游戏化状态栏 -->
+        <div class="game-stats-bar">
+            <div class="game-stats-row">
+                <div class="level-badge">Lv.{{ profile.level }}</div>
+                <div class="exp-bar-container">
+                    <div class="exp-bar">
+                        <div class="exp-bar-fill" style="width: {{ exp_progress|floatformat:0 }}%;"></div>
+                    </div>
+                    <div class="exp-text">{{ profile.experience_points }} / {{ exp_for_next }} XP</div>
+                </div>
+                <div class="game-mini-stats">
+                    <div class="mini-stat">
+                        <span class="mini-stat-icon">🔥</span>
+                        <span>{{ profile.streak_days }} 天</span>
+                    </div>
+                    <div class="mini-stat">
+                        <span class="mini-stat-icon">🏅</span>
+                        <span>{{ achievements_count }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 伙伴卡片 -->
+        {% if buddy_info %}
+        <div class="buddy-card">
+            <div class="buddy-header">
+                <div class="buddy-title">
+                    <span>💞</span>
+                    <span>我的伙伴：</span>
+                    <span class="buddy-name">{{ buddy_info.buddy.username }}</span>
+                </div>
+                <button class="btn-encourage" onclick="showEncourageModal()">💬 加油</button>
+            </div>
+            <div class="buddy-status">
+                <div class="buddy-progress">
+                    {% if buddy_info.today_progress >= buddy_info.total_exercises %}
+                    ✅ 今日已完成
+                    {% else %}
+                    📝 今日进度: {{ buddy_info.today_progress }}/{{ buddy_info.total_exercises }}
+                    {% endif %}
+                </div>
+                <div class="buddy-streak">
+                    🔥 连续 {{ buddy_info.profile.streak_days }} 天
+                </div>
+            </div>
+        </div>
+        {% endif %}
 
         <div class="text-center">
             {% if all_done %}
@@ -286,6 +454,68 @@
         const duration = items.length * 3;
         list.style.animation = `scrollUp ${duration}s infinite cubic-bezier(0.68, -0.55, 0.27, 1.55)`;
     });
+
+    // === 鼓励消息功能 ===
+    function showEncourageModal() {
+        document.getElementById('encourageModal').style.display = 'flex';
+        document.getElementById('encourageInput').focus();
+    }
+    
+    function hideEncourageModal() {
+        document.getElementById('encourageModal').style.display = 'none';
+        document.getElementById('encourageInput').value = '';
+    }
+    
+    function sendEncouragement() {
+        const message = document.getElementById('encourageInput').value.trim();
+        if (!message) {
+            showToast('请输入鼓励消息', 'error');
+            return;
+        }
+        
+        fetch('/api/encouragement/send/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: message })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                showToast('💪 ' + data.msg, 'success');
+                hideEncourageModal();
+            } else {
+                showToast(data.msg, 'error');
+            }
+        })
+        .catch(err => {
+            showToast('发送失败', 'error');
+        });
+    }
+    
+    // 快捷鼓励消息
+    function quickEncourage(text) {
+        document.getElementById('encourageInput').value = text;
+    }
 </script>
+
+<!-- 鼓励消息模态框 -->
+<div id="encourageModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center;">
+    <div style="background:white; border-radius:20px; padding:30px; max-width:400px; width:90%; box-shadow:0 10px 40px rgba(0,0,0,0.2);">
+        <h4 style="margin-bottom:20px; color:var(--primary-color);">💬 给伙伴加油</h4>
+        
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:15px;">
+            <button onclick="quickEncourage('加油！你很棒！')" style="background:rgba(212,175,55,0.1); border:none; padding:6px 12px; border-radius:15px; font-size:0.85rem; cursor:pointer;">加油！你很棒！</button>
+            <button onclick="quickEncourage('今天也要继续努力哦~')" style="background:rgba(212,175,55,0.1); border:none; padding:6px 12px; border-radius:15px; font-size:0.85rem; cursor:pointer;">今天也要继续努力哦~</button>
+            <button onclick="quickEncourage('一起冲！💪')" style="background:rgba(212,175,55,0.1); border:none; padding:6px 12px; border-radius:15px; font-size:0.85rem; cursor:pointer;">一起冲！💪</button>
+        </div>
+        
+        <textarea id="encourageInput" placeholder="写一句鼓励的话..." style="width:100%; height:80px; border:1px solid #ddd; border-radius:10px; padding:12px; font-size:0.95rem; resize:none; margin-bottom:15px;"></textarea>
+        
+        <div style="display:flex; gap:10px; justify-content:flex-end;">
+            <button onclick="hideEncourageModal()" style="background:#f0f0f0; border:none; padding:10px 20px; border-radius:20px; cursor:pointer;">取消</button>
+            <button onclick="sendEncouragement()" style="background:linear-gradient(135deg, #e74c3c, #c0392b); color:white; border:none; padding:10px 20px; border-radius:20px; cursor:pointer;">发送 ❤️</button>
+        </div>
+    </div>
+</div>
 
 {% endblock %}

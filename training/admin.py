@@ -1,5 +1,8 @@
 from django.contrib import admin
-from .models import Exercise, PracticeRecord, DailyCheckIn, Announcement, ReadRecord
+from .models import (
+    Exercise, PracticeRecord, DailyCheckIn, Announcement, ReadRecord,
+    StudentProfile, Achievement, StudentAchievement, BuddyPair, Encouragement
+)
 
 # 1. 练习管理
 @admin.register(Exercise)
@@ -32,3 +35,44 @@ class AnnouncementAdmin(admin.ModelAdmin):
 class ReadRecordAdmin(admin.ModelAdmin):
     list_display = ('announcement', 'student', 'read_at')
     list_filter = ('announcement', 'student')
+
+
+# ==========================================
+# 5. 游戏化系统管理
+# ==========================================
+
+@admin.register(StudentProfile)
+class StudentProfileAdmin(admin.ModelAdmin):
+    list_display = ('user', 'level', 'experience_points', 'streak_days', 'total_practice_days', 'total_recordings')
+    list_filter = ('level',)
+    search_fields = ('user__username',)
+    ordering = ('-experience_points',)
+
+@admin.register(Achievement)
+class AchievementAdmin(admin.ModelAdmin):
+    list_display = ('icon', 'name', 'condition_type', 'condition_value', 'exp_reward', 'order')
+    list_editable = ('order', 'exp_reward')
+    ordering = ('order',)
+
+@admin.register(StudentAchievement)
+class StudentAchievementAdmin(admin.ModelAdmin):
+    list_display = ('student', 'achievement', 'earned_at')
+    list_filter = ('achievement',)
+    search_fields = ('student__username',)
+
+
+# ==========================================
+# 6. 互帮系统管理
+# ==========================================
+
+@admin.register(BuddyPair)
+class BuddyPairAdmin(admin.ModelAdmin):
+    list_display = ('student_a', 'student_b', 'is_active', 'created_at')
+    list_filter = ('is_active',)
+    search_fields = ('student_a__username', 'student_b__username')
+
+@admin.register(Encouragement)
+class EncouragementAdmin(admin.ModelAdmin):
+    list_display = ('sender', 'pair', 'message', 'created_at', 'is_read')
+    list_filter = ('is_read', 'pair')
+

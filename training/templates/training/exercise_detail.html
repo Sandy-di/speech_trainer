@@ -294,6 +294,48 @@ color: white;
 50% { transform: scale(1.05); }
 }
 
+/* 横屏试听区 */
+.wechat-landscape-wrapper .wl-review-area {
+margin-top: 15px;
+padding: 15px;
+background: #fdfbf7;
+border-radius: 12px;
+border: 1px dashed #d4af37;
+}
+
+.wechat-landscape-wrapper .wl-action-btns {
+display: flex;
+gap: 10px;
+justify-content: center;
+}
+
+.wechat-landscape-wrapper .wl-btn {
+padding: 10px 16px;
+border-radius: 25px;
+font-size: 13px;
+font-weight: 600;
+border: none;
+cursor: pointer;
+white-space: nowrap;
+}
+
+.wechat-landscape-wrapper .wl-btn-retry {
+background: #fff;
+color: #d4af37;
+border: 1px solid #d4af37;
+}
+
+.wechat-landscape-wrapper .wl-btn-upload {
+background: linear-gradient(135deg, #d4af37, #bfa15f);
+color: white;
+flex: 1;
+}
+
+.wechat-landscape-wrapper .wl-btn:disabled {
+opacity: 0.6;
+cursor: not-allowed;
+}
+
 /* 关闭按钮 */
 .wechat-landscape-wrapper .wl-close {
 position: absolute;
@@ -658,10 +700,20 @@ border-radius: 10px;
             </div>
             {% endif %}
             <div class="wl-record-area">
+                <!-- 录音按钮 -->
                 <button class="wl-record-btn" id="wlRecordBtn">
                     <span class="icon">🎙️</span>
                     <span class="label">开始录音</span>
                 </button>
+                
+                <!-- 横屏试听区 - 录音完成后显示 -->
+                <div class="wl-review-area" id="wlReviewArea" style="display:none;">
+                    <audio id="wlAudioPreview" controls style="width:100%; height:36px; margin-bottom:12px;"></audio>
+                    <div class="wl-action-btns">
+                        <button class="wl-btn wl-btn-retry" id="wlRetryBtn">🔄 重录</button>
+                        <button class="wl-btn wl-btn-upload" id="wlUploadBtn">📚 更新到作业本</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -741,9 +793,8 @@ border-radius: 10px;
                         <audio id="audioPreview" controls style="width:100%; margin-bottom:15px;"></audio>
 
                         <div class="action-buttons-row">
-                            <button class="btn-round btn-skip" onclick="markCompleteAndReturn()">✕ 不上传</button>
                             <button class="btn-round btn-retry" onclick="resetToRecordState()">🔄 重录</button>
-                            <button class="btn-round btn-upload" onclick="uploadBest()">🚀 上传</button>
+                            <button class="btn-round btn-upload" onclick="uploadBest()">📚 更新到作业本</button>
                         </div>
                     </div>
                 </div>
@@ -930,6 +981,16 @@ border-radius: 10px;
                 recordBtnContainer.style.display = 'none';
                 reviewArea.style.display = 'block';
 
+                // === 同步更新横屏试听区 ===
+                const wlReviewArea = document.getElementById('wlReviewArea');
+                const wlAudioPreview = document.getElementById('wlAudioPreview');
+                const wlRecordBtn = document.getElementById('wlRecordBtn');
+                if (wlReviewArea && wlAudioPreview) {
+                    wlAudioPreview.src = audioUrl;
+                    wlReviewArea.style.display = 'block';
+                    if (wlRecordBtn) wlRecordBtn.style.display = 'none';
+                }
+
                 stream.getTracks().forEach(track => track.stop());
             };
         } catch (err) {
@@ -987,33 +1048,7 @@ border-radius: 10px;
         btnLabel.innerText = '开始录音';
     }
 
-    // === 5. 标记完成并返回 ===
-    function markCompleteAndReturn() {
-        currentAudioBlob = null;
-        showToast("正在记录进度...", "loading");
-
-        fetch('/api/mark_complete/', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ exercise_id: '{{ exercise.id }}' })
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.status === 'success') {
-                showToast("✅ 已记录完成！", "success");
-                setTimeout(() => {
-                    window.location.href = "{% url 'student_dashboard' %}";
-                }, 1000);
-            } else {
-                showToast("操作失败: " + data.msg, "error");
-            }
-        })
-        .catch(err => {
-            showToast("网络错误", "error");
-        });
-    }
-
-    // === 6. 上传最佳 ===
+    // === 5. 上传录音到作业本 ===
     function uploadBest() {
         if (!currentAudioBlob) return;
         const btn = document.querySelector('.btn-upload'); 
@@ -1249,6 +1284,74 @@ if (isRecording) {
     if (label) label.textContent = '开始录音';
 }
 }
+
+// 重置横屏录音界面到初始状态
+function resetWlToRecordState() {
+    const wlRecordBtn = document.getElementById('wlRecordBtn');
+    const wlReviewArea = document.getElementById('wlReviewArea');
+    
+    if (wlRecordBtn) wlRecordBtn.style.display = 'flex';
+    if (wlReviewArea) wlReviewArea.style.display = 'none';
+    
+    // 同时重置竖屏界面
+    resetToRecordState();
+}
+
+// 横屏模式上传录音
+function wlUploadBest() {
+    if (!currentAudioBlob) return;
+    
+    const btn = document.getElementById('wlUploadBtn');
+    if (!btn) return;
+    
+    const originalText = btn.innerText;
+    btn.disabled = true;
+    btn.innerText = "上传中...";
+
+    const formData = new FormData();
+    const timestamp = new Date().getTime();
+    formData.append('audio_file', currentAudioBlob, `best_${timestamp}.${fileExtension}`);
+    formData.append('exercise_id', '{{ exercise.id }}');
+
+    fetch('/api/upload_practice/', { method: 'POST', body: formData })
+    .then(response => response.json())
+    .then(data => {
+        btn.disabled = false;
+        btn.innerText = originalText;
+        if (data.status === 'success') {
+            let msg = data.msg;
+            if (data.exp_earned) {
+                msg += ` (+${data.exp_earned} XP)`;
+            }
+            showToast("✅ " + msg, "success");
+            setTimeout(() => {
+                window.location.href = "{% url 'student_dashboard' %}";
+            }, 1500);
+        } else {
+            showToast("上传失败: " + data.msg, "error");
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        btn.disabled = false;
+        btn.innerText = originalText;
+        showToast("网络错误，请稍后重试", "error");
+    });
+}
+
+// 绑定横屏按钮事件
+document.addEventListener('DOMContentLoaded', function() {
+    const wlRetryBtn = document.getElementById('wlRetryBtn');
+    const wlUploadBtn = document.getElementById('wlUploadBtn');
+    
+    if (wlRetryBtn) {
+        wlRetryBtn.addEventListener('click', resetWlToRecordState);
+    }
+    
+    if (wlUploadBtn) {
+        wlUploadBtn.addEventListener('click', wlUploadBest);
+    }
+});
 </script>
 
 {% endblock %}

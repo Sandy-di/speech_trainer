@@ -1,0 +1,185 @@
+{% extends 'training/base.html' %}
+
+{% block content %}
+
+<style>
+    .achievements-header {
+        text-align: center;
+        margin-bottom: 40px;
+    }
+    .page-title {
+        font-family: 'Cinzel', serif;
+        font-weight: 700;
+        font-size: 2rem;
+        color: var(--primary-color);
+        margin-bottom: 10px;
+    }
+    .achievements-summary {
+        font-size: 1rem;
+        color: #999;
+    }
+    .achievements-summary .highlight {
+        color: var(--accent-color);
+        font-weight: 700;
+        font-size: 1.2em;
+    }
+    
+    /* 等级卡片 */
+    .level-card {
+        background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+        border-radius: 20px;
+        padding: 30px;
+        color: white;
+        margin-bottom: 40px;
+        text-align: center;
+    }
+    .level-number {
+        font-size: 4rem;
+        font-weight: 700;
+        font-family: 'Cinzel', serif;
+        color: var(--accent-color);
+        text-shadow: 0 2px 10px rgba(212, 175, 55, 0.3);
+    }
+    .level-label {
+        font-size: 0.9rem;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+        color: rgba(255,255,255,0.6);
+        margin-bottom: 20px;
+    }
+    .exp-info {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 20px;
+        flex-wrap: wrap;
+    }
+    .exp-stat {
+        text-align: center;
+    }
+    .exp-stat-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+    }
+    .exp-stat-label {
+        font-size: 0.8rem;
+        color: rgba(255,255,255,0.6);
+    }
+    
+    /* 成就网格 */
+    .achievements-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 20px;
+    }
+    .achievement-card {
+        background: var(--card-bg);
+        border-radius: 15px;
+        padding: 25px;
+        box-shadow: var(--shadow-light);
+        transition: all 0.3s;
+        border: 2px solid transparent;
+    }
+    .achievement-card:hover {
+        transform: translateY(-5px);
+        box-shadow: var(--shadow-hover);
+    }
+    .achievement-card.earned {
+        border-color: var(--accent-color);
+        background: linear-gradient(135deg, #fff 0%, #fffdf5 100%);
+    }
+    .achievement-card.locked {
+        opacity: 0.6;
+    }
+    .achievement-icon {
+        font-size: 3rem;
+        margin-bottom: 15px;
+    }
+    .achievement-card.locked .achievement-icon {
+        filter: grayscale(100%);
+    }
+    .achievement-name {
+        font-weight: 700;
+        font-size: 1.1rem;
+        color: var(--primary-color);
+        margin-bottom: 8px;
+    }
+    .achievement-desc {
+        font-size: 0.9rem;
+        color: #888;
+        margin-bottom: 15px;
+    }
+    .achievement-reward {
+        display: inline-block;
+        background: rgba(212, 175, 55, 0.1);
+        color: var(--accent-color);
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+    .achievement-status {
+        float: right;
+        font-size: 1.5rem;
+    }
+</style>
+
+<div class="row justify-content-center">
+    <div class="col-md-10 col-lg-8">
+        
+        <div class="achievements-header">
+            <h1 class="page-title">🏆 成就墙</h1>
+            <div class="achievements-summary">
+                已解锁 <span class="highlight">{{ earned_count }}</span> / {{ total_count }} 个成就
+            </div>
+        </div>
+        
+        <!-- 等级卡片 -->
+        <div class="level-card">
+            <div class="level-label">LEVEL</div>
+            <div class="level-number">{{ profile.level }}</div>
+            <div class="exp-info">
+                <div class="exp-stat">
+                    <div class="exp-stat-value">{{ profile.experience_points }}</div>
+                    <div class="exp-stat-label">总经验值</div>
+                </div>
+                <div class="exp-stat">
+                    <div class="exp-stat-value">🔥 {{ profile.streak_days }}</div>
+                    <div class="exp-stat-label">连续天数</div>
+                </div>
+                <div class="exp-stat">
+                    <div class="exp-stat-value">{{ profile.total_practice_days }}</div>
+                    <div class="exp-stat-label">累计练习天</div>
+                </div>
+                <div class="exp-stat">
+                    <div class="exp-stat-value">{{ profile.total_recordings }}</div>
+                    <div class="exp-stat-label">累计录音</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 成就网格 -->
+        <div class="achievements-grid">
+            {% for item in achievements_list %}
+            <div class="achievement-card {% if item.earned %}earned{% else %}locked{% endif %}">
+                <div class="achievement-status">
+                    {% if item.earned %}✅{% else %}🔒{% endif %}
+                </div>
+                <div class="achievement-icon">{{ item.achievement.icon }}</div>
+                <div class="achievement-name">{{ item.achievement.name }}</div>
+                <div class="achievement-desc">{{ item.achievement.description }}</div>
+                <div class="achievement-reward">+{{ item.achievement.exp_reward }} XP</div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <div class="text-center mt-4">
+            <a href="{% url 'student_dashboard' %}" class="btn btn-outline-secondary rounded-pill px-4">
+                ← 返回首页
+            </a>
+        </div>
+        
+    </div>
+</div>
+
+{% endblock %}

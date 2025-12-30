@@ -87,8 +87,8 @@ urlpatterns = [
     # 1. 上传录音
     path('api/upload_practice/', views.api_upload_practice, name='api_upload_practice'),
 
-    # 2. 🔥👇 新增：标记完成 (放弃录音但记录进度) 👇🔥
-    path('api/mark_complete/', views.api_mark_practice_complete, name='api_mark_practice_complete'),
+    # 2. 删除历史录音
+    path('api/delete_record/<int:record_id>/', views.api_delete_practice_record, name='api_delete_record'),
 
     # 3. 提交日报
     path('api/submit_daily/', views.submit_daily_checkin, name='submit_daily_checkin'),
@@ -105,7 +105,19 @@ urlpatterns = [
     path('api/like/<int:checkin_id>/', views.toggle_like, name='toggle_like'),
 
     # ==========================================
-    # 3. 小程序专用接口 (如果您还有 api_views.py)
+    # 4. 游戏化系统
+    # ==========================================
+    path('achievements/', views.achievements_page, name='achievements'),
+
+    # ==========================================
+    # 5. 互帮系统 API
+    # ==========================================
+    path('api/encouragement/send/', views.api_send_encouragement, name='api_send_encouragement'),
+    path('api/encouragement/list/', views.api_get_encouragements, name='api_get_encouragements'),
+    path('api/encouragement/read/<int:msg_id>/', views.api_mark_encouragement_read, name='api_mark_encouragement_read'),
+
+    # ==========================================
+    # 6. 小程序专用接口 (如果您还有 api_views.py)
     # ==========================================
     # 如果您确认现在的 views.py 已经够用，下面这些可以注释掉，或者确保导入了 api_views
     # path('api/mp/dashboard/', api_views.dashboard_data, name='mp_dashboard'),
@@ -113,3 +125,4 @@ urlpatterns = [
     # path('api/mp/upload/<int:exercise_id>/', api_views.upload_recording, name='mp_upload'),
     # path('api/mp/login/', api_views.mp_login, name='mp_login'),
 ]
+
