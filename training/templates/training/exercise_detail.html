@@ -919,6 +919,12 @@ border-radius: 10px;
     const reviewArea = document.getElementById('reviewArea');
     const demoContainer = document.getElementById('demoContainer');
     const recordBtnContainer = document.getElementById('recordBtnContainer');
+    
+    // 录音时长跟踪
+    let recordingStartTime = null;
+    let recordingDuration = 0;
+    let recordingTimer = null;
+    const AUTO_UPLOAD_MIN_SECONDS = 10; // 超过10秒自动上传
 
     function toggleRecording() {
         if (!isRecording) startRecording();
@@ -951,13 +957,26 @@ border-radius: 10px;
 
             audioChunks = [];
             mediaRecorder.start();
+            
+            // 开始计时
+            recordingStartTime = Date.now();
+            recordingDuration = 0;
+            
+            // 更新录音时长显示
+            recordingTimer = setInterval(() => {
+                recordingDuration = Math.floor((Date.now() - recordingStartTime) / 1000);
+                const minutes = Math.floor(recordingDuration / 60);
+                const seconds = recordingDuration % 60;
+                const timeStr = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                statusText.innerText = `录音中... ${timeStr}`;
+            }, 1000);
 
             isRecording = true;
             mainBtn.className = 'record-btn recording';
             btnIcon.innerText = '■';
             btnLabel.innerText = '停止';
             statusText.style.display = 'block';
-            statusText.innerText = "录音中... 点击停止";
+            statusText.innerText = "录音中... 0:00";
             statusText.style.color = "#e74c3c";
             
             // 同步旋转容器录音按钮状态
@@ -972,26 +991,46 @@ border-radius: 10px;
             };
             
             mediaRecorder.onstop = async () => {
+                // 停止计时
+                if (recordingTimer) {
+                    clearInterval(recordingTimer);
+                    recordingTimer = null;
+                }
+                recordingDuration = Math.floor((Date.now() - recordingStartTime) / 1000);
+                
                 currentAudioBlob = new Blob(audioChunks, { type: supportedMimeType });
                 const audioUrl = URL.createObjectURL(currentAudioBlob);
 
                 document.getElementById('audioPreview').src = audioUrl;
                 
-                if(demoContainer) demoContainer.style.display = 'none';
-                recordBtnContainer.style.display = 'none';
-                reviewArea.style.display = 'block';
-
                 // === 同步更新横屏试听区 ===
                 const wlReviewArea = document.getElementById('wlReviewArea');
                 const wlAudioPreview = document.getElementById('wlAudioPreview');
-                const wlRecordBtn = document.getElementById('wlRecordBtn');
+                const wlRecordBtnEl = document.getElementById('wlRecordBtn');
                 if (wlReviewArea && wlAudioPreview) {
                     wlAudioPreview.src = audioUrl;
-                    wlReviewArea.style.display = 'block';
-                    if (wlRecordBtn) wlRecordBtn.style.display = 'none';
                 }
 
                 stream.getTracks().forEach(track => track.stop());
+                
+                // === 核心逻辑：录音超过10秒自动上传 ===
+                if (recordingDuration >= AUTO_UPLOAD_MIN_SECONDS) {
+                    // 自动上传
+                    showToast(`录音 ${recordingDuration} 秒，正在自动保存...`, "loading");
+                    autoUploadRecording();
+                } else {
+                    // 不足10秒，显示试听区让用户选择
+                    if(demoContainer) demoContainer.style.display = 'none';
+                    recordBtnContainer.style.display = 'none';
+                    reviewArea.style.display = 'block';
+                    
+                    if (wlReviewArea) {
+                        wlReviewArea.style.display = 'block';
+                        if (wlRecordBtnEl) wlRecordBtnEl.style.display = 'none';
+                    }
+                    
+                    showToast(`录音 ${recordingDuration} 秒，不足10秒，请重录或手动上传`, "error");
+                }
             };
         } catch (err) {
             console.error(err);
@@ -1046,6 +1085,48 @@ border-radius: 10px;
         mainBtn.className = 'record-btn start';
         btnIcon.innerText = '🎙️';
         btnLabel.innerText = '开始录音';
+    }
+    
+    // === 自动上传录音（录音超过10秒时触发）===
+    function autoUploadRecording() {
+        if (!currentAudioBlob) return;
+
+        const formData = new FormData();
+        const timestamp = new Date().getTime();
+        formData.append('audio_file', currentAudioBlob, `best_${timestamp}.${fileExtension}`);
+        formData.append('exercise_id', '{{ exercise.id }}');
+
+        fetch('/api/upload_practice/', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                let msg = "✅ 练习完成！已自动保存";
+                if (data.exp_earned) {
+                    msg += ` (+${data.exp_earned} XP)`;
+                }
+                showToast(msg, "success");
+                setTimeout(() => {
+                    window.location.href = "{% url 'student_dashboard' %}";
+                }, 1500);
+            } else {
+                showToast("自动保存失败: " + data.msg, "error");
+                // 显示试听区让用户手动操作
+                if(demoContainer) demoContainer.style.display = 'none';
+                recordBtnContainer.style.display = 'none';
+                reviewArea.style.display = 'block';
+            }
+        })
+        .catch(err => {
+            console.error('Error:', err);
+            showToast("网络错误，请手动上传", "error");
+            // 显示试听区让用户手动操作
+            if(demoContainer) demoContainer.style.display = 'none';
+            recordBtnContainer.style.display = 'none';
+            reviewArea.style.display = 'block';
+        });
     }
 
     // === 5. 上传录音到作业本 ===
