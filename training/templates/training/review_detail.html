@@ -1,0 +1,393 @@
+{% extends 'training/base.html' %}
+
+{% block content %}
+
+<style>
+    /* === 页面专属样式 === */
+    .review-container {
+        max-width: 800px;
+        margin: 0 auto;
+    }
+
+    /* 返回链接 */
+    .back-link {
+        color: #8c98a4;
+        text-decoration: none;
+        display: inline-flex; align-items: center; gap: 5px;
+        margin-bottom: 25px; transition: color 0.2s;
+        font-size: 0.9rem;
+    }
+    .back-link:hover { color: var(--primary-color); }
+
+    /* === 主卡片 === */
+    .review-card {
+        background: var(--card-bg);
+        border: none;
+        border-radius: 24px;
+        padding: 40px;
+        box-shadow: var(--shadow-light);
+        position: relative;
+        overflow: hidden;
+    }
+
+    /* 顶部装饰条 */
+    .review-card::before {
+        content: "";
+        position: absolute;
+        top: 0; left: 0; width: 100%; height: 6px;
+        background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
+    }
+
+    /* === 头部信息 === */
+    .header-info {
+        text-align: center;
+        margin-bottom: 40px;
+    }
+    .page-title {
+        font-family: 'Cinzel', serif;
+        font-weight: 700;
+        font-size: 1.5rem;
+        color: var(--primary-color);
+        margin-bottom: 10px;
+        letter-spacing: 1px;
+    }
+    .student-badge {
+        display: inline-flex;
+        align-items: center;
+        background: #f8f9fa;
+        padding: 8px 20px;
+        border-radius: 50px;
+        font-size: 0.95rem;
+        color: #555;
+        border: 1px solid #eee;
+        gap: 10px;
+    }
+    .student-badge strong { color: var(--primary-color); }
+    .submit-time {
+        font-size: 0.8rem;
+        color: #aaa;
+        margin-top: 10px;
+        display: block;
+    }
+
+    /* === 1. 文字点评区 (信笺风格) === */
+    .text-review-section {
+        background: linear-gradient(to bottom right, #fdfbf7, #fffbf0);
+        border-radius: 15px;
+        padding: 25px;
+        border: 1px solid rgba(212, 175, 55, 0.15);
+        margin-bottom: 30px;
+    }
+    .section-label {
+        font-family: 'Cinzel', serif;
+        font-weight: 700;
+        color: var(--accent-color);
+        font-size: 0.9rem;
+        letter-spacing: 1px;
+        margin-bottom: 15px;
+        display: block;
+    }
+    .form-control-review {
+        background: transparent;
+        border: none;
+        width: 100%;
+        resize: none;
+        outline: none;
+        font-size: 1rem;
+        line-height: 1.8;
+        color: #4a5568;
+        background-image: linear-gradient(transparent 95%, rgba(212, 175, 55, 0.1) 95%);
+        background-size: 100% 2rem; /* 行高参考线 */
+        padding: 0;
+    }
+    .form-control-review:focus { box-shadow: none; }
+
+    /* === 2. 语音录制台 (复用练习页风格) === */
+    .audio-review-section {
+        background: white;
+        border-radius: 20px;
+        padding: 30px;
+        text-align: center;
+        border: 1px dashed #e2e8f0;
+        margin-bottom: 30px;
+    }
+
+    .record-btn-wrapper {
+        width: 80px; height: 80px;
+        margin: 0 auto 15px;
+        position: relative;
+    }
+
+    .record-btn {
+        width: 100%; height: 100%;
+        border-radius: 50%;
+        border: none;
+        background: white;
+        box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        cursor: pointer;
+        transition: all 0.3s;
+        border: 2px solid #f0f0f0;
+        color: #555;
+    }
+
+    .record-btn:hover { transform: scale(1.05); }
+
+    /* 录音中状态 */
+    .record-btn.recording {
+        background: #e74c3c;
+        color: white;
+        border-color: #c0392b;
+        animation: pulse-red 1.5s infinite;
+    }
+    @keyframes pulse-red {
+        0% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0.4); transform: scale(1); }
+        70% { box-shadow: 0 0 0 15px rgba(231, 76, 60, 0); transform: scale(1.05); }
+        100% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0); transform: scale(1); }
+    }
+
+    /* === 底部按钮 === */
+    .btn-submit {
+        background-color: var(--primary-color);
+        color: white;
+        border: none;
+        border-radius: 50px;
+        padding: 15px;
+        width: 100%;
+        font-size: 1.1rem;
+        letter-spacing: 2px;
+        box-shadow: 0 5px 20px rgba(44, 62, 80, 0.2);
+        transition: all 0.3s;
+    }
+    .btn-submit:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(44, 62, 80, 0.3);
+        background-color: #34495e;
+        color: white;
+    }
+    .btn-submit:disabled {
+        background-color: #95a5a6;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    /* === 优雅 Toast === */
+    .toast-container {
+        position: fixed; top: 20px; left: 50%;
+        transform: translateX(-50%); z-index: 1050;
+    }
+    .grace-toast {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        padding: 12px 25px;
+        border-radius: 50px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        display: flex; align-items: center; gap: 10px;
+        transform: translateY(-100px); opacity: 0;
+        transition: all 0.5s;
+        border: 1px solid rgba(212, 175, 55, 0.2);
+    }
+    .grace-toast.show { transform: translateY(0); opacity: 1; }
+</style>
+
+<div class="toast-container">
+    <div id="graceToast" class="grace-toast">
+        <span id="toastIcon" style="font-size: 1.2rem;">✨</span>
+        <span id="toastMsg" style="font-weight: 500; font-size: 0.95rem;"></span>
+    </div>
+</div>
+
+<div class="review-container">
+    <a href="{% url 'teacher_dashboard' %}" class="back-link">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+            <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/>
+        </svg>
+        返回作业列表
+    </a>
+
+    <div class="review-card">
+        <div class="header-info">
+            <div class="page-title">ASSIGNMENT REVIEW</div>
+            <div class="student-badge">
+                <span>👤 学员：<strong>{{ record.student.username }}</strong></span>
+                <span style="color:#ddd">|</span>
+                <span>🎵 练习：<strong>{{ record.exercise.title }}</strong></span>
+            </div>
+            <span class="submit-time">提交于 {{ record.submitted_at|date:"Y.m.d H:i" }}</span>
+        </div>
+
+        <form id="review-form">
+            {% csrf_token %}
+
+            <div class="text-review-section">
+                <label class="section-label">✍️ WRITTEN FEEDBACK</label>
+                <textarea name="comment_text" class="form-control-review" rows="6" placeholder="在此写下您的建议与鼓励...">{{ record.teacher_comment_text|default:'' }}</textarea>
+            </div>
+
+            <div class="audio-review-section">
+                <label class="section-label mb-3">🎤 VOICE FEEDBACK</label>
+
+                <div class="record-btn-wrapper">
+                    <button type="button" id="recordBtn" class="record-btn" onclick="toggleRecording()">
+                        <span id="btnIcon" style="font-size: 24px;">🎙️</span>
+                    </button>
+                </div>
+                <p id="recordStatus" class="text-muted small mb-3">点击麦克风开始录音</p>
+
+                <div id="preview-box" style="display:none;" class="mt-3 bg-light p-3 rounded">
+                    <small class="text-primary d-block mb-2">🎧 即将保存的录音：</small>
+                    <audio id="audio-preview" controls src="" class="w-100"></audio>
+                    <button type="button" class="btn btn-sm btn-link text-danger mt-2" onclick="resetRecording()">🗑 撤销重录</button>
+                </div>
+
+                {% if record.teacher_comment_audio %}
+                    <div id="history-audio" class="mt-3 pt-3 border-top">
+                        <small class="text-success d-block mb-2">✅ 已发布的录音：</small>
+                        <audio controls src="{{ record.teacher_comment_audio.url }}" class="w-100"></audio>
+                    </div>
+                {% endif %}
+            </div>
+
+            <button type="button" onclick="submitReview()" class="btn-submit">
+                💾 保存并返回 · SAVE
+            </button>
+        </form>
+
+    </div>
+</div>
+
+<script>
+    // === 恩典提示框逻辑 ===
+    function showToast(message, type='success') {
+        const toast = document.getElementById('graceToast');
+        const msg = document.getElementById('toastMsg');
+        const icon = document.getElementById('toastIcon');
+
+        msg.innerText = message;
+        icon.innerText = type === 'recording' ? '🔴' : (type === 'success' ? '✅' : '⚠️');
+        toast.classList.add('show');
+
+        if(type !== 'recording') {
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+    }
+
+    // === 录音逻辑 ===
+    let mediaRecorder;
+    let audioChunks = [];
+    let recordedBlob = null;
+    let isRecording = false;
+
+    const recordBtn = document.getElementById('recordBtn');
+    const btnIcon = document.getElementById('btnIcon');
+    const statusText = document.getElementById('recordStatus');
+    const previewBox = document.getElementById('preview-box');
+    const audioPreview = document.getElementById('audio-preview');
+
+    function toggleRecording() {
+        if (!isRecording) startRecording();
+        else stopRecording();
+    }
+
+    async function startRecording() {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+
+            mediaRecorder.start();
+            audioChunks = [];
+            recordedBlob = null;
+
+            // UI 状态：录音中
+            isRecording = true;
+            recordBtn.classList.add('recording');
+            btnIcon.innerText = '■';
+            statusText.innerText = "正在录音... (点击停止)";
+            showToast("Recording...", "recording");
+            previewBox.style.display = 'none'; // 隐藏预览
+
+            mediaRecorder.addEventListener("dataavailable", event => audioChunks.push(event.data));
+            mediaRecorder.addEventListener("stop", () => {
+                recordedBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                const audioUrl = URL.createObjectURL(recordedBlob);
+                audioPreview.src = audioUrl;
+
+                // UI 状态：录音完成
+                previewBox.style.display = 'block';
+                statusText.innerText = "录音完成，请试听";
+                // 隐藏历史录音以免混淆
+                const historyBox = document.getElementById('history-audio');
+                if(historyBox) historyBox.style.display = 'none';
+            });
+
+        } catch (err) {
+            console.error(err);
+            showToast("无法访问麦克风", "error");
+        }
+    }
+
+    function stopRecording() {
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop();
+            // UI 状态：恢复
+            isRecording = false;
+            recordBtn.classList.remove('recording');
+            btnIcon.innerText = '🎙️';
+            document.getElementById('graceToast').classList.remove('show');
+
+            // 停止麦克风流
+            mediaRecorder.stream.getTracks().forEach(track => track.stop());
+        }
+    }
+
+    function resetRecording() {
+        recordedBlob = null;
+        previewBox.style.display = 'none';
+        statusText.innerText = "点击麦克风开始录音";
+        // 恢复显示历史录音
+        const historyBox = document.getElementById('history-audio');
+        if(historyBox) historyBox.style.display = 'block';
+    }
+
+    // === 提交逻辑 ===
+    function submitReview() {
+        const form = document.getElementById('review-form');
+        const formData = new FormData(form);
+        const btn = document.querySelector('.btn-submit');
+
+        // 如果有新录音，添加到表单
+        if (recordedBlob) {
+            formData.append('audio_data', recordedBlob, 'teacher_review.webm');
+        }
+
+        btn.disabled = true;
+        btn.innerText = "正在保存 · SAVING...";
+        showToast("正在保存点评...", "loading");
+
+        fetch(window.location.href, {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if(data.status === 'success') {
+                showToast("🎉 保存成功！", "success");
+                setTimeout(() => window.location.href = "{% url 'teacher_dashboard' %}", 1000);
+            } else {
+                alert('保存失败: ' + data.msg);
+                btn.disabled = false;
+                btn.innerText = "💾 保存并返回 · SAVE";
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            showToast("网络错误", "error");
+            btn.disabled = false;
+            btn.innerText = "💾 保存并返回 · SAVE";
+        });
+    }
+</script>
+
+{% endblock %}

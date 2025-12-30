@@ -1,0 +1,291 @@
+{% extends 'training/base.html' %}
+
+{% block content %}
+
+<style>
+    /* === 顶部进度卡片 === */
+    .status-card {
+        background: white; border-radius: 20px; padding: 30px; text-align: center;
+        box-shadow: var(--shadow-light); margin-bottom: 20px; position: relative; overflow: hidden;
+        border: 1px solid rgba(212, 175, 55, 0.1);
+    }
+    .status-card.success { background: linear-gradient(to bottom right, #ffffff, #fffdf5); }
+    .status-card.success::after { content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 5px; background: var(--accent-color); }
+    .progress-text { font-family: 'Cinzel', serif; font-size: 1.2rem; color: var(--accent-color); margin-top: 10px; letter-spacing: 2px; }
+
+    /* === 同伴激励栏 === */
+    .motivation-banner {
+        background: linear-gradient(to right, #ffffff, #fdfbf7); border-radius: 50px;
+        padding: 8px 20px; margin-bottom: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+        border: 1px solid rgba(212, 175, 55, 0.15); display: flex; align-items: center; justify-content: space-between; height: 46px; overflow: hidden;
+    }
+    .motivation-stat {
+        display: flex; align-items: center; gap: 8px; font-weight: 600;
+        color: var(--primary-color); font-size: 0.85rem; padding-right: 15px; border-right: 1px solid #eee; white-space: nowrap;
+    }
+    .live-dot {
+        width: 8px; height: 8px; background-color: var(--success-green); border-radius: 50%;
+        box-shadow: 0 0 0 rgba(46, 204, 113, 0.4); animation: pulse-green 2s infinite;
+    }
+    @keyframes pulse-green {
+        0% { box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.7); }
+        70% { box-shadow: 0 0 0 6px rgba(46, 204, 113, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(46, 204, 113, 0); }
+    }
+    .motivation-ticker { flex: 1; height: 100%; overflow: hidden; position: relative; padding-left: 15px; display: flex; align-items: center; }
+    .ticker-list { list-style: none; padding: 0; margin: 0; position: absolute; top: 0; left: 15px; width: 100%; }
+    .ticker-item { height: 46px; display: flex; align-items: center; font-size: 0.85rem; color: #666; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ticker-avatar { width: 22px; height: 22px; background: #f0f0f0; border-radius: 50%; margin-right: 8px; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #999; flex-shrink: 0; }
+    .highlight-name { color: var(--accent-color); font-weight: 600; margin-right: 4px; }
+    @keyframes scrollUp { 0% { transform: translateY(0); } 100% { transform: translateY(-100%); } }
+
+    /* === 练习卡片 === */
+    .exercise-card { display: block; background: white; border-radius: 18px; padding: 20px 25px; margin-bottom: 15px; text-decoration: none; color: var(--primary-color); box-shadow: var(--shadow-light); transition: all 0.3s; border-left: 4px solid transparent; display: flex; justify-content: space-between; align-items: center; }
+    .exercise-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-hover); background: #fafafa; }
+    .exercise-card.done { border-left-color: var(--success-green); }
+    .exercise-card.todo { border-left-color: #e9ecef; }
+    .exercise-info h5 { margin: 0; font-size: 1.1rem; font-weight: 600; }
+    .exercise-info small { color: #999; font-size: 0.8rem; }
+    .status-badge { font-size: 0.85rem; padding: 6px 15px; border-radius: 50px; font-weight: 500; letter-spacing: 1px; }
+    .badge-done { background-color: rgba(46, 204, 113, 0.1); color: var(--success-green); border: 1px solid rgba(46, 204, 113, 0.2); }
+    .badge-todo { background-color: #f8f9fa; color: #adb5bd; border: 1px solid #eee; }
+
+    /* 底部按钮 */
+    .action-area { margin-top: 40px; margin-bottom: 60px; }
+    .btn-action-lg { border: none; padding: 15px; border-radius: 15px; transition: all 0.3s; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; text-decoration: none; }
+    .btn-primary-gradient { background: linear-gradient(135deg, var(--primary-color), #34495e); color: white; box-shadow: 0 5px 20px rgba(44, 62, 80, 0.3); }
+    .btn-outline-gold { background: white; border: 1px solid var(--accent-color); color: var(--primary-color); box-shadow: var(--shadow-light); }
+    .btn-disabled { background: #f1f3f5; color: #adb5bd; cursor: not-allowed; }
+
+    /* Toast */
+    .toast-container { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 1050; }
+    .grace-toast { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); padding: 12px 25px; border-radius: 50px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 10px; transform: translateY(-100px); opacity: 0; transition: all 0.5s; border: 1px solid rgba(212, 175, 55, 0.2); }
+    .grace-toast.show { transform: translateY(0); opacity: 1; }
+
+    /* 公告横幅 - 融合样式 */
+    .announcement-link {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        text-decoration: none;
+        color: #333;
+        overflow: hidden;
+        padding-left: 15px;
+    }
+    .ann-icon-sm { margin-right: 8px; font-size: 1.1rem; animation: tada 2s infinite; }
+    .ann-text-sm {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-weight: 600;
+        color: #d35400;
+        font-size: 0.9rem;
+    }
+    @keyframes tada {
+        0% {transform: scale(1);}
+        10%, 20% {transform: scale(0.9) rotate(-3deg);}
+        30%, 50%, 70%, 90% {transform: scale(1.1) rotate(3deg);}
+        40%, 60%, 80% {transform: scale(1.1) rotate(-3deg);}
+        100% {transform: scale(1) rotate(0);}
+    }
+</style>
+
+<div class="toast-container">
+    <div id="graceToast" class="grace-toast">
+        <span id="toastIcon" style="font-size: 1.2rem;">✨</span>
+        <span id="toastMsg" style="font-weight: 500; font-size: 0.95rem;"></span>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+
+        <div class="text-center">
+            {% if all_done %}
+                <div class="status-card success">
+                    <div style="font-size: 2.5rem; margin-bottom: 10px;">🎉</div>
+                    <h4 style="font-weight: 700;">今日练习已全部完成！</h4>
+                    <div class="progress-text">PROGRESS: {{ completed_count }} / {{ total_count }}</div>
+
+                    {% if not is_submitted_to_teacher %}
+                        <div class="mt-3 p-2 rounded" style="background: rgba(231, 76, 60, 0.1); display: inline-block;">
+                            <small class="text-danger fw-bold">⚠️ 记得点击下方按钮通知老师哦</small>
+                        </div>
+                    {% endif %}
+                </div>
+            {% else %}
+                <div class="status-card">
+                    <h5 class="text-muted mb-2">今日练习进度</h5>
+                    <div class="progress-text">{{ completed_count }} / {{ total_count }}</div>
+                    <div class="progress mt-3" style="height: 6px; border-radius: 10px;">
+                        <div class="progress-bar bg-warning" role="progressbar" style="width: {% widthratio completed_count total_count 100 %}%;"></div>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="motivation-banner">
+            <div class="motivation-stat">
+                <span class="live-dot"></span>
+                <span>今日已有 <span style="color:var(--accent-color); font-size:1.1em;">{{ total_today_checkins|default:"0" }}</span> 人打卡</span>
+            </div>
+
+            {% if latest_announcement %}
+                <a href="{% url 'announcement_detail' latest_announcement.id %}" class="announcement-link">
+                    <span class="ann-icon-sm">📢</span>
+                    <span style="font-size: 0.85rem; color: #aaa; margin-right: 8px;">{{ latest_announcement.created_at|date:"m-d" }}</span>
+                    <span class="ann-text-sm">{{ latest_announcement.title }}</span>
+                    <span style="margin-left:auto; color:#999; font-size:1.2rem;">›</span>
+                </a>
+            {% else %}
+                <div class="motivation-ticker">
+                    <ul class="ticker-list" id="tickerList">
+                        {% for record in latest_records %}
+                            <li class="ticker-item">
+                                <div class="ticker-avatar">👤</div>
+                                <span>
+                                    <span class="highlight-name">{{ record.student.username }}</span>
+                                    <span style="font-size: 0.8em; color: #aaa;">完成了</span>
+                                    {{ record.exercise.title }}
+                                </span>
+                            </li>
+                        {% empty %}
+                            <li class="ticker-item">
+                                <div class="ticker-avatar">🌱</div>
+                                <span>新的一天，做第一个开始练习的人吧！</span>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="list-area">
+            {% for exercise in exercises %}
+                <a href="{% url 'exercise_detail' exercise.id %}" class="exercise-card {% if exercise.id in completed_ids %}done{% else %}todo{% endif %}">
+                    <div class="exercise-info">
+                        <h5 class="mb-1">{{ exercise.title }}</h5>
+                        <small>点击进入练习</small>
+                    </div>
+                    {% if exercise.id in completed_ids %}
+                        <span class="status-badge badge-done"><span style="font-size:1.2em; vertical-align:middle;">✓</span> 今日已练</span>
+                    {% else %}
+                        <span class="status-badge badge-todo">未完成</span>
+                    {% endif %}
+                </a>
+            {% endfor %}
+        </div>
+
+        <div class="action-area text-center">
+
+            {% if all_done %}
+                <button onclick="submitDailyCheckIn()" class="btn-action-lg btn-primary-gradient w-100 mb-4">
+                    <span style="font-size: 1.2rem; font-weight: bold;">
+                        {% if is_submitted_to_teacher %}
+                            🔄 更新本周最佳作业
+                        {% else %}
+                            🚀 提交本周最佳作业给老师
+                        {% endif %}
+                    </span>
+                </button>
+
+                {% if is_submitted_to_teacher %}
+                    <div class="text-success mb-4" style="font-size: 0.9rem;">
+                        <i class="bi bi-check-circle-fill"></i> 本周作业已同步给老师，如有修改可再次点击更新
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <a href="{% url 'daily_report_view' checkin_id %}" class="btn-action-lg btn-outline-gold" style="width: 100%;">
+                                <div style="font-size: 1.5rem; margin-bottom: 5px;">🔗</div>
+                                <div style="line-height: 1.2;"><strong>分享日报</strong><br><small style="opacity: 0.8; font-size: 0.7rem;">含老师点评</small></div>
+                            </a>
+                        </div>
+                        <div class="col-6">
+                            <button onclick="downloadAllAudios({{ checkin_id }})" class="btn-action-lg btn-outline-gold" style="width: 100%;">
+                                <div style="font-size: 1.5rem; margin-bottom: 5px;">💾</div>
+                                <div style="line-height: 1.2;"><strong>下载录音</strong><br><small style="opacity: 0.8; font-size: 0.7rem;">音频文件</small></div>
+                            </button>
+                        </div>
+                    </div>
+                {% endif %}
+
+            {% else %}
+                <button class="btn-action-lg btn-disabled w-100" disabled>
+                    请先完成今日练习再提交
+                </button>
+            {% endif %}
+
+        </div>
+
+    </div>
+</div>
+
+<script>
+    function showToast(message, type='success') {
+        const toast = document.getElementById('graceToast');
+        const msg = document.getElementById('toastMsg');
+        const icon = document.getElementById('toastIcon');
+        msg.innerText = message;
+        icon.innerText = type === 'error' ? '⚠️' : '✨';
+        toast.classList.add('show');
+        setTimeout(() => { toast.classList.remove('show'); }, 3000);
+    }
+
+    function submitDailyCheckIn() {
+        // 提示语根据状态变化
+        let confirmMsg = '确认提交本周最佳作业吗？\n(将根据您本周上传的最佳录音生成报告)';
+        {% if is_submitted_to_teacher %}
+            confirmMsg = '确认更新本周作业吗？\n(如果有更新，老师将收到最新版本)';
+        {% endif %}
+
+        if(!confirm(confirmMsg)) return;
+
+        showToast("正在提交...", "loading");
+        fetch('/api/submit_daily/', { method: 'POST', headers: { 'Content-Type': 'application/json' } })
+        .then(response => response.json())
+        .then(data => {
+            if(data.status === 'success') {
+                showToast("🎉 " + data.msg, "success");
+                setTimeout(() => window.location.reload(), 1500);
+            } else { showToast("提交失败: " + data.msg, "error"); }
+        })
+        .catch(error => { console.error('Error:', error); showToast("网络错误，请稍后重试", "error"); });
+    }
+
+    function downloadAllAudios(reportId) {
+        showToast("准备下载音频...", "loading");
+        fetch(`/api/report_audios/${reportId}/`).then(response => response.json())
+            .then(data => {
+                if (data.status === 'success' && data.files.length > 0) {
+                    showToast(`开始下载 ${data.files.length} 个文件...`, "success");
+                    data.files.forEach((file, index) => {
+                        setTimeout(() => {
+                            const link = document.createElement('a');
+                            link.href = file.url; link.download = file.name; link.style.display = 'none';
+                            document.body.appendChild(link); link.click(); document.body.removeChild(link);
+                        }, index * 800);
+                    });
+                } else { showToast(data.message || '未找到可下载的录音文件', "error"); }
+            }).catch(error => { console.error('Error:', error); showToast("下载请求失败", "error"); });
+    }
+
+    // === 优化：JS 控制滚动动画 (比 CSS keyframes 更平滑) ===
+    document.addEventListener("DOMContentLoaded", function() {
+        const list = document.getElementById('tickerList');
+        if(!list) return;
+        const items = list.getElementsByTagName('li');
+
+        // 如果只有1条或没有数据，不需要滚动
+        if(items.length <= 1) {
+            list.style.animation = 'none';
+            return;
+        }
+
+        // JS 动态计算 CSS 动画的时长，每条记录给 3 秒展示时间
+        const duration = items.length * 3;
+        list.style.animation = `scrollUp ${duration}s infinite cubic-bezier(0.68, -0.55, 0.27, 1.55)`;
+    });
+</script>
+
+{% endblock %}

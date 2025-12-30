@@ -1,0 +1,26 @@
+{% extends 'training/base.html' %}
+{% load static %}
+{% block content %}
+<div class="container" style="max-width:900px;margin:0 auto;padding:40px 20px">
+<h2 style="font-family:'Cinzel',serif;color:var(--primary-color);text-align:center;margin-bottom:30px">📢 {% if is_edit %}编辑公告{% else %}发布新公告{% endif %}</h2>
+<div style="background:#fff;padding:30px;border-radius:20px;box-shadow:var(--shadow-light)">
+<form method="post" enctype="multipart/form-data" id="announcement-form">{% csrf_token %}{{ form.media }}
+<div style="margin-bottom:20px"><label style="display:block;font-weight:bold;margin-bottom:10px;color:#555">公告标题</label>{{ form.title }}</div>
+<div style="margin-bottom:30px"><label style="display:block;font-weight:bold;margin-bottom:10px;color:#555">公告内容 (支持图片)</label>{{ form.content }}</div>
+<div style="margin-bottom:30px;background:#f9f9f9;padding:15px;border-radius:10px;border:1px dashed #ddd">
+<label style="display:block;font-weight:bold;margin-bottom:10px;color:#555">🎙️ 语音播报录制 (可选)</label>
+{% if is_edit and announcement.audio_file %}<div style="margin-bottom:10px"><span style="color:#2ecc71">✅ 已有录音</span> <audio controls src="{{ announcement.audio_file.url }}" style="height:30px;vertical-align:middle"></audio></div>{% endif %}
+<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button type="button" id="btn-start" style="padding:8px 15px;background:#e74c3c;color:#fff;border:none;border-radius:5px;cursor:pointer">开始录音</button><button type="button" id="btn-stop" disabled style="padding:8px 15px;background:#ddd;color:#666;border:none;border-radius:5px">停止录音</button><span id="recording-status" style="color:#666;font-size:.9rem">未开始</span></div>
+<audio id="audio-preview" controls style="display:none;width:100%;margin-top:15px"></audio>
+<input type="file" name="audio_file" id="audio-file-input" style="display:none">
+</div>
+<div style="display:flex;gap:15px"><a href="{% url 'teacher_dashboard' %}" style="padding:15px;background:#eee;color:#666;border-radius:50px;text-decoration:none;text-align:center;flex:1">取消</a><button type="submit" style="flex:2;padding:15px;background:var(--primary-color);color:#fff;border:none;border-radius:50px;font-size:1rem;cursor:pointer">🚀 {% if is_edit %}保存修改{% else %}立即发布{% endif %}</button></div>
+</form>
+</div>
+</div>
+<script>
+let mediaRecorder,audioChunks=[];const btnStart=document.getElementById('btn-start'),btnStop=document.getElementById('btn-stop'),status=document.getElementById('recording-status'),audioPreview=document.getElementById('audio-preview'),fileInput=document.getElementById('audio-file-input');
+btnStart.addEventListener('click',async()=>{try{const stream=await navigator.mediaDevices.getUserMedia({audio:true});mediaRecorder=new MediaRecorder(stream);mediaRecorder.start();status.textContent="正在录音... 🎙️";status.style.color="#e74c3c";btnStart.disabled=true;btnStart.style.background="#ddd";btnStop.disabled=false;btnStop.style.background="#333";audioChunks=[];mediaRecorder.addEventListener("dataavailable",e=>audioChunks.push(e.data));mediaRecorder.addEventListener("stop",()=>{const blob=new Blob(audioChunks,{type:'audio/webm'});audioPreview.src=URL.createObjectURL(blob);audioPreview.style.display="block";const file=new File([blob],"voice.webm",{type:"audio/webm"});const dt=new DataTransfer();dt.items.add(file);fileInput.files=dt.files;status.textContent="录音已保存 ✅";status.style.color="#2ecc71"})}catch(err){alert("无法访问麦克风: "+err)}});
+btnStop.addEventListener('click',()=>{if(mediaRecorder&&mediaRecorder.state!=='inactive'){mediaRecorder.stop();btnStart.disabled=false;btnStart.style.background="#e74c3c";btnStop.disabled=true;btnStop.style.background="#ddd";mediaRecorder.stream.getTracks().forEach(t=>t.stop())}});
+</script>
+{% endblock %}

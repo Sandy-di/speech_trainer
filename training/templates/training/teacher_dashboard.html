@@ -1,0 +1,599 @@
+{% extends 'training/base.html' %}
+
+{% block content %}
+
+<style>
+    /* === 页面专属样式 === */
+    .dashboard-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid rgba(0,0,0,0.05);
+    }
+    .page-title {
+        font-family: 'Cinzel', serif;
+        font-weight: 700;
+        font-size: 1.5rem;
+        color: var(--primary-color);
+        display: flex; align-items: center; gap: 10px;
+    }
+    .btn-admin {
+        background: transparent;
+        border: 1px solid #e0e0e0;
+        color: #888;
+        border-radius: 50px;
+        padding: 5px 15px;
+        font-size: 0.85rem;
+        transition: all 0.3s;
+        text-decoration: none;
+        white-space: nowrap; /* 防止手机端文字换行 */
+    }
+    .btn-admin:hover {
+        border-color: var(--primary-color);
+        color: var(--primary-color);
+    }
+
+    /* === 分组标题 === */
+    .section-header {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--primary-color);
+        margin: 40px 0 20px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding-left: 10px;
+        border-left: 4px solid var(--accent-color);
+    }
+    .section-header small {
+        font-weight: 400;
+        color: #999;
+        font-size: 0.9rem;
+    }
+
+    /* === 学生作业卡片 === */
+    .checkin-card {
+        background: var(--card-bg);
+        border: none;
+        border-radius: 20px;
+        box-shadow: var(--shadow-light);
+        margin-bottom: 30px;
+        overflow: hidden;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .checkin-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+    }
+    /* 卡片头部 */
+    .card-header-custom {
+        background: linear-gradient(to right, #fff, #fbfbfb);
+        padding: 20px 25px;
+        border-bottom: 1px solid #f0f0f0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .student-info {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+    /* 已删除 .mini-avatar 样式 */
+
+    .student-name {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--primary-color);
+        margin: 0;
+    }
+    .checkin-date {
+        font-family: 'Cinzel', serif;
+        font-size: 0.8rem;
+        color: #999;
+    }
+    /* === 状态徽章 === */
+    .status-pill {
+        padding: 6px 16px;
+        border-radius: 50px;
+        font-size: 0.8rem;
+        letter-spacing: 1px;
+        font-weight: 500;
+        display: inline-flex; align-items: center; gap: 5px;
+        white-space: nowrap; /* 防止手机端文字换行 */
+    }
+    .pill-warning { background: #fffdf5; color: #bfa15f; border: 1px solid #fae588; }
+    .pill-success { background: rgba(46, 204, 113, 0.08); color: #2ecc71; border: 1px solid rgba(46, 204, 113, 0.2); }
+    .pill-danger { background: rgba(231, 76, 60, 0.08); color: #e74c3c; border: 1px solid rgba(231, 76, 60, 0.2); }
+
+    /* === 练习列表行 === */
+    .exercise-row {
+        padding: 20px 25px;
+        border-bottom: 1px solid #f9f9f9;
+        display: flex;
+        align-items: center;
+        gap: 20px;
+    }
+    .exercise-row:last-child { border-bottom: none; }
+    .ex-info { flex: 1; min-width: 200px; }
+    .ex-title { font-size: 1rem; font-weight: 600; color: #333; margin-bottom: 4px; display: block; }
+    .ex-time { font-size: 0.75rem; color: #aaa; }
+    .ex-audio { flex: 2; min-width: 250px; }
+
+    /* 总评按钮样式 */
+    .btn-review-main {
+        background: white;
+        border: 1px solid var(--primary-color);
+        color: var(--primary-color);
+        border-radius: 50px;
+        padding: 6px 20px;
+        font-size: 0.85rem;
+        transition: all 0.3s;
+        text-decoration: none;
+        display: inline-flex; align-items: center; gap: 5px;
+        margin-left: 10px; /* 稍微缩小间距 */
+        white-space: nowrap; /* 防止手机端文字换行 */
+    }
+    .btn-review-main:hover {
+        background: var(--primary-color);
+        color: white;
+        box-shadow: 0 5px 15px rgba(44, 62, 80, 0.2);
+    }
+    audio { width: 100%; height: 36px; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.05)); }
+
+    /* 空状态提示 */
+    .empty-section {
+        padding: 30px;
+        text-align: center;
+        color: #999;
+        background: #f9f9f9;
+        border-radius: 15px;
+        border: 1px dashed #e0e0e0;
+    }
+    
+    /* === 学员概览表格样式 === */
+    .student-overview {
+        background: var(--card-bg);
+        border-radius: 20px;
+        box-shadow: var(--shadow-light);
+        padding: 25px;
+        margin-bottom: 40px;
+    }
+    .student-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    .student-table th {
+        text-align: left;
+        padding: 12px 15px;
+        font-weight: 600;
+        color: var(--primary-color);
+        border-bottom: 2px solid #f0f0f0;
+        font-size: 0.9rem;
+    }
+    .student-table td {
+        padding: 15px;
+        border-bottom: 1px solid #f9f9f9;
+    }
+    .student-table tr:hover {
+        background: #fafafa;
+    }
+    .student-table tr:last-child td {
+        border-bottom: none;
+    }
+    .stat-number {
+        font-weight: 600;
+        color: var(--primary-color);
+    }
+    .stat-number.success {
+        color: #2ecc71;
+    }
+    .stat-number.warning {
+        color: #bfa15f;
+    }
+    .btn-history {
+        background: transparent;
+        border: 1px solid var(--accent-color);
+        color: var(--primary-color);
+        border-radius: 50px;
+        padding: 4px 15px;
+        font-size: 0.8rem;
+        transition: all 0.3s;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+    }
+    .btn-history:hover {
+        background: var(--accent-color);
+        color: white;
+    }
+    /* === 公告管理样式 === */
+    .announcement-section { background: var(--card-bg); border-radius: 20px; box-shadow: var(--shadow-light); padding: 25px; margin-top: 40px; }
+    .announcement-list { list-style: none; padding: 0; margin: 0; }
+    .ann-item { background: #fafafa; border-radius: 12px; padding: 15px 20px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+    .ann-item:hover { background: #f5f5f5; }
+    .ann-title { font-size: 1rem; font-weight: 600; color: #333; text-decoration: none; }
+    .ann-title:hover { color: var(--primary-color); }
+    .ann-meta { font-size: 0.8rem; color: #999; margin-top: 4px; }
+    .ann-actions { display: flex; gap: 8px; align-items: center; }
+    .btn-icon { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid #eee; background: #fff; color: #666; cursor: pointer; text-decoration: none; font-size: 14px; }
+    .btn-icon:hover { background: #f0f0f0; }
+    .btn-icon.danger:hover { background: #ffebee; color: #c0392b; border-color: #ef9a9a; }
+
+    /* ==========================================
+       手机端响应式布局
+       ========================================== */
+    @media (max-width: 768px) {
+        /* 头部布局 */
+        .dashboard-header {
+            flex-direction: column;
+            gap: 15px;
+            text-align: center;
+        }
+        .dashboard-header > div:last-child {
+            width: 100%;
+            justify-content: center;
+        }
+        .page-title {
+            font-size: 1.3rem;
+        }
+        .btn-admin {
+            padding: 8px 12px;
+            font-size: 0.8rem;
+        }
+
+        /* 分组标题 */
+        .section-header {
+            font-size: 1rem;
+            flex-wrap: wrap;
+            margin: 25px 0 15px;
+        }
+        .section-header small {
+            font-size: 0.75rem;
+            width: 100%;
+            margin-top: 5px;
+        }
+
+        /* 学员概览 - 卡片式布局替代表格 */
+        .student-overview {
+            padding: 15px;
+            border-radius: 15px;
+        }
+        .student-table {
+            display: block;
+        }
+        .student-table thead {
+            display: none;
+        }
+        .student-table tbody {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .student-table tr {
+            display: flex;
+            flex-wrap: wrap;
+            background: #f9f9f9;
+            border-radius: 12px;
+            padding: 15px;
+            gap: 8px;
+            align-items: center;
+        }
+        .student-table tr:hover {
+            background: #f5f5f5;
+        }
+        .student-table td {
+            padding: 0;
+            border: none;
+        }
+        .student-table td:first-child {
+            width: 100%;
+            font-size: 1.1rem;
+            margin-bottom: 8px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #eee;
+        }
+        .student-table td:not(:first-child):not(:last-child) {
+            background: #fff;
+            padding: 6px 10px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            border: 1px solid #eee;
+        }
+        .student-table td:last-child {
+            width: 100%;
+            margin-top: 8px;
+        }
+        .btn-history {
+            width: 100%;
+            justify-content: center;
+            padding: 10px;
+        }
+
+        /* 作业卡片 */
+        .checkin-card {
+            border-radius: 15px;
+            margin-bottom: 20px;
+        }
+        .card-header-custom {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 15px;
+        }
+        .card-header-custom > div:last-child {
+            width: 100%;
+            justify-content: space-between;
+        }
+        .btn-review-main {
+            margin-left: 0;
+            flex: 1;
+            justify-content: center;
+            padding: 10px 15px;
+        }
+
+        /* 练习行 */
+        .exercise-row {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 15px;
+        }
+        .ex-info, .ex-audio {
+            width: 100%;
+            min-width: unset;
+        }
+        audio {
+            height: 40px;
+        }
+
+        /* 公告区域 */
+        .announcement-section {
+            padding: 15px;
+            border-radius: 15px;
+            margin-top: 25px;
+        }
+        .ann-item {
+            flex-direction: column;
+            align-items: flex-start;
+            padding: 12px 15px;
+        }
+        .ann-item > div:first-child {
+            width: 100%;
+        }
+        .ann-actions {
+            width: 100%;
+            justify-content: flex-end;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #eee;
+        }
+        .btn-icon {
+            width: 36px;
+            height: 36px;
+        }
+    }
+
+    /* 超小屏幕 */
+    @media (max-width: 480px) {
+        .page-title {
+            font-size: 1.1rem;
+        }
+        .btn-admin {
+            padding: 6px 10px;
+            font-size: 0.75rem;
+        }
+        .status-pill {
+            padding: 4px 10px;
+            font-size: 0.7rem;
+        }
+        .student-name {
+            font-size: 1rem;
+        }
+    }
+</style>
+
+<div class="dashboard-header">
+    <div class="page-title">
+        <span>📋</span>
+        <span>作业点评台</span>
+    </div>
+    <div style="display:flex;gap:10px;">
+        <a href="{% url 'create_announcement' %}" class="btn-admin" style="color:#e67e22;border-color:#ffe6cc;background:#fff8f0;">📢 发布公告</a>
+        <a href="/admin/" class="btn-admin">⚙️ 布置作业</a>
+    </div>
+</div>
+
+<!-- 学员概览部分 -->
+<div class="student-overview">
+    <div class="section-header" style="margin-top: 0; margin-bottom: 25px;">
+        👥 学员打卡与作业情况
+        <small>(本周: {{ start_of_week|date:"m-d" }} ~ {{ today|date:"m-d" }})</small>
+    </div>
+    
+    <table class="student-table">
+        <thead>
+            <tr>
+                <th>学员</th>
+                <th>本周打卡</th>
+                <th>本周录音</th>
+                <th>今日打卡</th>
+                <th>今日录音</th>
+                <th>总录音数</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for stat in student_stats %}
+            <tr>
+                <td>
+                    <strong>{{ stat.student.username }}</strong>
+                </td>
+                <td>
+                    <span class="stat-number {% if stat.week_checkins > 0 %}success{% endif %}">
+                        {{ stat.week_checkins }} 次
+                    </span>
+                </td>
+                <td>
+                    <span class="stat-number {% if stat.week_records > 0 %}success{% endif %}">
+                        {{ stat.week_records }} 条
+                    </span>
+                </td>
+                <td>
+                    {% if stat.today_checkin %}
+                        <span class="stat-number success">✓ 已打卡</span>
+                    {% else %}
+                        <span style="color: #999;">未打卡</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <span class="stat-number {% if stat.today_records > 0 %}success{% else %}warning{% endif %}">
+                        {{ stat.today_records }} 条
+                    </span>
+                </td>
+                <td>
+                    <span class="stat-number">{{ stat.total_records }} 条</span>
+                </td>
+                <td>
+                    <a href="{% url 'teacher_student_history' stat.student.id %}" class="btn-history">
+                        🎵 查看历史录音
+                    </a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="7" style="text-align: center; color: #999; padding: 30px;">
+                    暂无学员
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="checkin-list">
+
+    <div class="section-header" style="color: #bfa15f; border-color: #bfa15f;">
+        ⏳ 待点评作业
+    </div>
+
+    {% for checkin in checkins %}
+        {% if not checkin.teacher_summary %}
+            <div class="checkin-card">
+                <div class="card-header-custom">
+                    <div class="student-info">
+                        <div>
+                            <h4 class="student-name">{{ checkin.student.username }}</h4>
+                            <span class="checkin-date">{{ checkin.date|date:"Y.m.d" }}</span>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center;">
+                        <span class="status-pill pill-warning">● 待总评</span>
+                        <a href="{% url 'teacher_summary' checkin.id %}" class="btn-review-main">
+                            ✍️ 写总评
+                        </a>
+                    </div>
+                </div>
+
+                <div class="card-body p-0">
+                    {% for record in checkin.records.all %}
+                        <div class="exercise-row">
+                            <div class="ex-info">
+                                <span class="ex-title">{{ record.exercise.title }}</span>
+                                <span class="ex-time">提交于 {{ record.submitted_at|date:"H:i" }}</span>
+                            </div>
+                            <div class="ex-audio">
+                                {% if record.student_audio %}
+                                    <audio controls src="{{ record.student_audio.url }}" preload="none"></audio>
+                                {% else %}
+                                    <span class="status-pill pill-danger">⚠️ 音频缺失</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endif %}
+    {% empty %}
+    {% endfor %}
+
+    <div class="section-header" style="color: #2ecc71; border-color: #2ecc71; margin-top: 60px;">
+        ✅ 已完成点评
+    </div>
+
+    {% for checkin in checkins %}
+        {% if checkin.teacher_summary %}
+            <div class="checkin-card" style="opacity: 0.8;">
+                <div class="card-header-custom">
+                    <div class="student-info">
+                        <div>
+                            <h4 class="student-name" style="color: #666;">{{ checkin.student.username }}</h4>
+                            <span class="checkin-date">{{ checkin.date|date:"Y.m.d" }}</span>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center;">
+                        <span class="status-pill pill-success">✓ 今日已评</span>
+                        <a href="{% url 'teacher_summary' checkin.id %}" class="btn-review-main" style="border-color:#eee; color:#999;">
+                            ✍️ 修改
+                        </a>
+                    </div>
+                </div>
+
+                <div class="card-body p-0">
+                    {% for record in checkin.records.all %}
+                        <div class="exercise-row">
+                            <div class="ex-info">
+                                <span class="ex-title" style="color:#666;">{{ record.exercise.title }}</span>
+                                <span class="ex-time">提交于 {{ record.submitted_at|date:"H:i" }}</span>
+                            </div>
+                            <div class="ex-audio">
+                                {% if record.student_audio %}
+                                    <audio controls src="{{ record.student_audio.url }}" preload="none"></audio>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endif %}
+    {% empty %}
+        <div class="text-center mt-5">
+            <div style="font-size: 3rem; opacity: 0.3;">📭</div>
+            <p class="text-muted">暂无任何作业提交</p>
+        </div>
+    {% endfor %}
+
+</div>
+
+<!-- 公告管理区域 -->
+<div class="announcement-section">
+    <div class="section-header" style="margin-top: 0; margin-bottom: 20px; color: #e67e22; border-color: #e67e22;">
+        📢 公告管理
+        <a href="{% url 'create_announcement' %}" class="btn-admin" style="margin-left: auto; background:#2ecc71; color:#fff; border:none;">+ 新建公告</a>
+    </div>
+    <ul class="announcement-list">
+        {% for ann in announcements %}
+        <li class="ann-item">
+            <div style="flex:1;">
+                <a href="{% url 'announcement_detail' ann.id %}" class="ann-title">{{ ann.title }}</a>
+                <div class="ann-meta">{{ ann.created_at|date:"Y-m-d H:i" }} · 发布人: {{ ann.created_by.first_name|default:ann.created_by.username }}</div>
+            </div>
+            <div class="ann-actions">
+                <a href="{% url 'announcement_stats' ann.id %}" class="btn-icon" title="阅读统计">📊</a>
+                <a href="{% url 'edit_announcement' ann.id %}" class="btn-icon" title="编辑">✏️</a>
+                <form action="{% url 'delete_announcement' ann.id %}" method="post" style="margin:0" onsubmit="return confirm('确定删除这条公告吗？')">
+                    {% csrf_token %}
+                    <button type="submit" class="btn-icon danger" title="删除">🗑️</button>
+                </form>
+            </div>
+        </li>
+        {% empty %}
+        <li style="text-align:center; color:#999; padding:30px;">暂无公告</li>
+        {% endfor %}
+    </ul>
+</div>
+
+{% endblock %}

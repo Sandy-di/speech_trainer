@@ -1,0 +1,284 @@
+{% extends 'training/base.html' %}
+
+{% block content %}
+
+<style>
+    /* === 页面样式 === */
+    .summary-card {
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+        border: none;
+        overflow: hidden;
+        margin-top: 20px;
+    }
+    .card-header-styled {
+        background: linear-gradient(to right, #fff, #fdfbf7);
+        padding: 30px;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    .page-title {
+        font-family: 'Cinzel', serif;
+        font-weight: 700;
+        color: var(--primary-color);
+        margin-bottom: 5px;
+    }
+    .sub-title {
+        color: #999;
+        font-size: 0.9rem;
+    }
+
+    /* 录音区域 */
+    .audio-recorder-box {
+        background: #f8f9fa;
+        border: 2px dashed #e0e0e0;
+        border-radius: 15px;
+        padding: 30px;
+        text-align: center;
+        transition: all 0.3s;
+    }
+    .audio-recorder-box.recording {
+        border-color: #e74c3c;
+        background: rgba(231, 76, 60, 0.05);
+    }
+
+    .rec-btn {
+        width: 70px; height: 70px;
+        border-radius: 50%;
+        border: none;
+        font-size: 24px;
+        display: flex; align-items: center; justify-content: center;
+        margin: 0 auto 15px;
+        transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+    /* 初始状态 */
+    .rec-btn.start { background: white; color: #e74c3c; border: 2px solid #e74c3c; }
+    .rec-btn.start:hover { transform: scale(1.05); background: #e74c3c; color: white; }
+
+    /* 录音中 */
+    .rec-btn.recording {
+        background: #e74c3c; color: white;
+        animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+        0% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0.4); }
+        70% { box-shadow: 0 0 0 20px rgba(231, 76, 60, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0); }
+    }
+
+    /* 底部按钮 */
+    .btn-submit {
+        background: var(--primary-color);
+        color: white;
+        border: none;
+        padding: 12px 40px;
+        border-radius: 50px;
+        font-size: 1rem;
+        letter-spacing: 1px;
+        box-shadow: 0 5px 15px rgba(44, 62, 80, 0.2);
+        transition: all 0.3s;
+    }
+    .btn-submit:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(44, 62, 80, 0.3); color: white; }
+
+    .btn-cancel {
+        color: #999;
+        text-decoration: none;
+        margin-right: 20px;
+        font-size: 0.9rem;
+    }
+    .btn-cancel:hover { color: #666; }
+</style>
+
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <a href="{% url 'teacher_dashboard' %}" class="btn-cancel mb-3 d-inline-block">
+            &larr; 返回批改台
+        </a>
+
+        <div class="card summary-card">
+            <div class="card-header-styled">
+                <h3 class="page-title">✍️ 撰写总评 / Teacher's Summary</h3>
+                <div class="sub-title">
+                    学员：<strong style="color:#333;">{{ checkin.student.username }}</strong> &nbsp;|&nbsp;
+                    日期：{{ checkin.date|date:"Y.m.d" }}
+                </div>
+            </div>
+
+            <div class="card-body p-4">
+                <form id="summaryForm">
+                    {% csrf_token %}
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold" style="color: #bfa15f;">📝 文字寄语</label>
+                        <textarea id="summary_text" name="summary_text" class="form-control" rows="6"
+                                  placeholder="请写下对该学员今日练习的整体评价、鼓励或建议..."
+                                  style="background: #fafafa; border: 1px solid #eee;">{{ checkin.teacher_summary|default:'' }}</textarea>
+                    </div>
+
+                    <div class="mb-5">
+                        <label class="form-label fw-bold" style="color: #bfa15f;">🎙️ 语音寄语 (可选)</label>
+
+                        <div class="audio-recorder-box" id="recorderBox">
+                            <button type="button" id="recBtn" class="rec-btn start" onclick="toggleRec()">
+                                🎙️
+                            </button>
+                            <div id="recStatus" class="text-muted small">点击麦克风开始录音</div>
+
+                            <audio id="audioPreview" controls style="display:none; width: 100%; margin-top: 20px;"></audio>
+                        </div>
+
+                        {% if checkin.teacher_audio %}
+                            <div class="mt-3 p-3 bg-light rounded border">
+                                <small class="text-muted d-block mb-2">💿 当前已保存的录音：</small>
+                                <audio controls src="{{ checkin.teacher_audio.url }}" class="w-100" style="height: 30px;"></audio>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="text-end border-top pt-4">
+                        <a href="{% url 'teacher_dashboard' %}" class="btn-cancel">取消</a>
+                        <button type="button" onclick="submitForm()" id="submitBtn" class="btn btn-submit">
+                            💾 保存发布
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ================= 智能录音逻辑 (M4A/WebM 兼容) =================
+    let mediaRecorder;
+    let audioChunks = [];
+    let isRecording = false;
+    let audioBlob = null;
+    let supportedMimeType = '';
+    let fileExtension = 'webm'; // 默认
+
+    // 页面加载时检测浏览器支持的格式
+    document.addEventListener("DOMContentLoaded", function() {
+        checkSupportedType();
+    });
+
+    function checkSupportedType() {
+        if (typeof MediaRecorder === 'undefined') return;
+
+        // 优先尝试 MP4/AAC (苹果设备)
+        if (MediaRecorder.isTypeSupported('audio/mp4')) {
+            supportedMimeType = 'audio/mp4'; fileExtension = 'm4a';
+        }
+        // 其次尝试 WebM (安卓/Chrome)
+        else if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+            supportedMimeType = 'audio/webm;codecs=opus'; fileExtension = 'webm';
+        } else {
+            supportedMimeType = 'audio/webm'; fileExtension = 'webm';
+        }
+        console.log(`使用格式: ${supportedMimeType}, 后缀: .${fileExtension}`);
+    }
+
+    function toggleRec() {
+        if(!isRecording) startRec();
+        else stopRec();
+    }
+
+    async function startRec() {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const options = supportedMimeType ? { mimeType: supportedMimeType } : {};
+
+            mediaRecorder = new MediaRecorder(stream, options);
+            audioChunks = [];
+            mediaRecorder.start();
+
+            // UI 更新
+            isRecording = true;
+            const btn = document.getElementById('recBtn');
+            btn.classList.remove('start');
+            btn.classList.add('recording');
+            btn.innerHTML = '■'; // 停止图标
+
+            document.getElementById('recorderBox').classList.add('recording');
+            document.getElementById('recStatus').innerText = "正在录音... (点击停止)";
+            document.getElementById('recStatus').style.color = "#e74c3c";
+
+            mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+            mediaRecorder.onstop = () => {
+                // 生成 Blob
+                audioBlob = new Blob(audioChunks, { type: supportedMimeType });
+
+                // 生成预览链接
+                const url = URL.createObjectURL(audioBlob);
+                const audio = document.getElementById('audioPreview');
+                audio.src = url;
+                audio.style.display = 'block';
+            };
+        } catch(e) {
+            alert("无法访问麦克风，请检查浏览器权限。");
+            console.error(e);
+        }
+    }
+
+    function stopRec() {
+        if(mediaRecorder) {
+            mediaRecorder.stop();
+            isRecording = false;
+
+            // UI 恢复
+            const btn = document.getElementById('recBtn');
+            btn.classList.remove('recording');
+            btn.classList.add('start');
+            btn.innerHTML = '🎙️'; // 重录图标
+
+            document.getElementById('recorderBox').classList.remove('recording');
+            document.getElementById('recStatus').innerText = "录音已完成 (点击话筒可重录)";
+            document.getElementById('recStatus').style.color = "#666";
+        }
+    }
+
+    // ================= 表单提交逻辑 =================
+    function submitForm() {
+        const btn = document.getElementById('submitBtn');
+        btn.disabled = true;
+        btn.innerText = "正在保存...";
+
+        const formData = new FormData();
+        formData.append('summary_text', document.getElementById('summary_text').value);
+
+        // 如果有新录音，添加到表单
+        if(audioBlob) {
+            formData.append('summary_audio', audioBlob, `teacher_summary.${fileExtension}`);
+        }
+
+        // 使用 fetch 发送请求 (因为是同源页面，通常会自动带 Cookie)
+        // 获取 CSRF Token
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+        fetch(window.location.href, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': csrfToken
+            }
+        }).then(response => {
+            if (response.redirected) {
+                window.location.href = response.url; // 成功后跳转
+            } else if (response.ok) {
+                // 如果后端没返回 redirect，我们手动跳回 Dashboard
+                window.location.href = "{% url 'teacher_dashboard' %}";
+            } else {
+                alert("保存失败，请重试。");
+                btn.disabled = false;
+                btn.innerText = "💾 保存发布";
+            }
+        }).catch(error => {
+            console.error('Error:', error);
+            alert("网络错误，请稍后重试");
+            btn.disabled = false;
+            btn.innerText = "💾 保存发布";
+        });
+    }
+</script>
+
+{% endblock %}

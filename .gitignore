@@ -1,0 +1,69 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv/
+
+# Django
+*.log
+local_settings.py
+db.sqlite3
+media/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+nohup.out
+
+# Cache
+.cache/
+*.cache
+
+# Misc
+Archive.zip
+a29075f6eef50b32a0b44d479c713bcc
+
+# Config files with sensitive data (if any)
+# config/settings_local.py
+
+# Dot files (shell configs copied to this folder by mistake)
+.bashrc
+.gitconfig
+.profile
+.pythonstartup.py
+.vimrc
+.ipython/
+.local/
+.virtualenvs/

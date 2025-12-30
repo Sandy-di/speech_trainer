@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>我的打卡成就</title>
+    <style>
+        /* 全局背景：深色系+柔和光晕 */
+        body {
+            margin: 0; padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            min-height: 100vh;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background-color: #1a1a2e; /* 深蓝黑背景 */
+            background-image: radial-gradient(circle at top right, rgba(100, 100, 255, 0.1), transparent 40%),
+                              radial-gradient(circle at bottom left, rgba(255, 50, 100, 0.1), transparent 40%);
+            color: #fff;
+        }
+
+        /* 海报主体卡片 */
+        .poster-card {
+            width: 82%;
+            max-width: 360px;
+            /* 漂亮的蓝紫渐变背景 */
+            background: linear-gradient(135deg, #4A00E0 0%, #8E2DE2 100%);
+            border-radius: 24px;
+            padding: 35px 25px;
+            text-align: center;
+            box-shadow: 0 20px 40px -10px rgba(0,0,0,0.5);
+            position: relative;
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        /* 背景装饰纹理 (可选) */
+        .poster-bg-pattern {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0; opacity: 0.1;
+            background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.1) 0px, rgba(255,255,255,0.1) 2px, transparent 2px, transparent 10px);
+            pointer-events: none;
+        }
+
+        /* 用户头部信息 */
+        .header-section { margin-bottom: 30px; position: relative; z-index: 2; }
+        .avatar {
+            width: 72px; height: 72px;
+            background: rgba(255,255,255,0.95); color: #4A00E0;
+            border-radius: 50%; margin: 0 auto 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 36px; box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+        }
+        .username { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: 0.5px; }
+        .checkin-date { font-size: 13px; opacity: 0.85; margin-top: 5px; font-weight: 300; }
+        .checkin-badge {
+            display: inline-block; background: rgba(255,255,255,0.2);
+            padding: 4px 12px; border-radius: 20px; font-size: 12px;
+            margin-top: 10px; font-weight: 500;
+        }
+
+        /* 核心数据展示区 */
+        .stats-container {
+            display: flex; justify-content: space-between;
+            background: rgba(0,0,0,0.15); /* 半透明深色底 */
+            border-radius: 18px; padding: 25px 15px;
+            margin-bottom: 30px; position: relative; z-index: 2;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        .stat-box { flex: 1; position: relative; }
+        /* 中间的分隔线 */
+        .stat-box:first-child::after {
+            content: ''; position: absolute; right: 0; top: 15%; height: 70%;
+            width: 1px; background: rgba(255,255,255,0.2);
+        }
+        /* 超大数字强调 */
+        .stat-num {
+            margin: 0; font-size: 42px; line-height: 1;
+            font-weight: 800; color: #FFD700; /* 金色数字 */
+            text-shadow: 0 2px 10px rgba(255, 215, 0, 0.3);
+        }
+        .stat-label { margin: 8px 0 0; font-size: 13px; opacity: 0.9; font-weight: 500; }
+        .stat-icon { font-size: 16px; margin-bottom: 5px; display: block; opacity: 0.8;}
+
+        /* 底部标语 */
+        .footer-quote { font-size: 15px; font-weight: 500; opacity: 0.95; margin-bottom: 10px; z-index: 2; position: relative;}
+        .brand-tip { font-size: 12px; opacity: 0.6; z-index: 2; position: relative;}
+
+        /* 页面底部提示 */
+        .page-footer { margin-top: 25px; color: #888; font-size: 12px; text-align: center; }
+
+        /* 微信分享箭头动画 */
+        .wx-arrow { position: absolute; top: 15px; right: 20px; font-size: 13px; color: #fff; animation: float 1.2s infinite alternate ease-in-out; z-index: 10;}
+        @keyframes float { from { transform: translateY(0); opacity: 0.8;} to { transform: translateY(-8px); opacity: 1;} }
+    </style>
+</head>
+<body>
+
+    <div class="wx-arrow">点击右上角分享 ↗</div>
+
+    <div class="poster-card">
+        <div class="poster-bg-pattern"></div>
+
+        <div class="header-section">
+            <div class="avatar">🚀</div>
+            <h2 class="username">{{ username }}</h2>
+            <div class="checkin-badge">✨ 今日打卡已完成</div>
+            <p class="checkin-date">{{ date|date:"Y年m月d日" }}</p>
+        </div>
+
+        <div class="stats-container">
+            <div class="stat-box">
+                <i class="stat-icon">🗓️</i>
+                <h3 class="stat-num">{{ total_days }}</h3>
+                <p class="stat-label">坚持天数</p>
+            </div>
+            <div class="stat-box">
+                <i class="stat-icon">📝</i>
+                <h3 class="stat-num">{{ today_count }}</h3>
+                <p class="stat-label">今日练习(项)</p>
+            </div>
+        </div>
+
+        <p class="footer-quote">“我靠着那加给我力量的，凡事都能做。”</p>
+        <div class="brand-tip">Hallelujah · 以马内利</div>
+    </div>
+
+    <div class="page-footer">
+        截图保存海报，分享到群里吧
+    </div>
+
+</body>
+</html>

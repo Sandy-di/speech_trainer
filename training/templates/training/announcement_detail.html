@@ -1,0 +1,97 @@
+{% extends 'training/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container" style="max-width: 800px; margin: 0 auto; padding: 40px 20px;">
+
+    <div
+        style="margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <a href="{% url 'teacher_dashboard' %}" style="color: #999; text-decoration: none; font-size: 0.9rem;">←
+            返回仪表盘</a>
+
+        <div style="display: flex; gap: 10px;">
+            <button onclick="copyLink()"
+                style="background: #07c160; color: white; border: none; padding: 8px 20px; border-radius: 50px; font-size: 0.9rem; cursor: pointer;">
+                🔗 分享
+            </button>
+            {% if user.is_staff %}
+            <a href="{% url 'announcement_stats' announcement.id %}"
+                style="background: #3498db; color: white; border: none; padding: 8px 20px; border-radius: 50px; font-size: 0.9rem; text-decoration: none;">
+                📊 统计
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <p id="copy-msg"
+        style="color: #07c160; font-size: 0.9rem; text-align: center; opacity: 0; transition: opacity 0.3s; margin-bottom: 20px;">
+        ✅ 链接已复制
+    </p>
+
+    <article
+        style="background: white; border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.08); overflow: hidden;">
+
+        <div
+            style="background: linear-gradient(135deg, #FFF8F0 0%, #FFF 100%); padding: 40px 40px 20px 40px; border-bottom: 1px solid rgba(0,0,0,0.03);">
+            <h1
+                style="font-size: 1.8rem; color: #2c3e50; margin-bottom: 15px; text-align: center; font-weight: 800; line-height: 1.4;">
+                {{ announcement.title }}
+            </h1>
+
+            <div
+                style="text-align: center; color: #95a5a6; font-size: 0.9rem; display: flex; align-items: center; justify-content: center; gap: 15px; flex-wrap: wrap;">
+                <span>📅 {{ announcement.created_at|date:"Y年m月d日" }}</span>
+                <span>👤 {{ announcement.created_by.first_name|default:announcement.created_by.username }}</span>
+            </div>
+        </div>
+
+        {% if announcement.audio_file %}
+        <div
+            style="padding: 20px 40px; background: #fafafa; border-bottom: 1px solid #eee; display: flex; align-items: center; gap: 15px;">
+            <div
+                style="width: 40px; height: 40px; background: #e74c3c; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white;">
+                🔈
+            </div>
+            <div style="flex: 1;">
+                <div style="font-size: 0.85rem; color: #666; margin-bottom: 5px;">语音播报</div>
+                <audio controls src="{{ announcement.audio_file.url }}" style="width: 100%; height: 30px;"></audio>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="content-body" style="padding: 40px; color: #444; font-size: 1.1rem; line-height: 1.8;">
+            {{ announcement.content|safe }}
+        </div>
+
+        <div style="padding: 20px; text-align: center; border-top: 1px solid #f9f9f9; background: #fdfdfd;">
+            <p style="color: #ccc; font-size: 0.8rem; margin: 0;">Choir Training System</p>
+        </div>
+
+    </article>
+
+</div>
+
+<style>
+    .content-body img {
+        max-width: 100%;
+        height: auto;
+        border-radius: 10px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+        margin: 20px 0;
+    }
+
+    .content-body p {
+        margin-bottom: 1.5em;
+    }
+</style>
+
+<script>
+    function copyLink() {
+        navigator.clipboard.writeText(window.location.href).then(() => {
+            const msg = document.getElementById('copy-msg');
+            msg.style.opacity = 1;
+            setTimeout(() => msg.style.opacity = 0, 3000);
+        }).catch(err => alert('复制失败，请手动复制浏览器地址栏'));
+    }
+</script>
+{% endblock %}
