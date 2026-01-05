@@ -160,16 +160,26 @@ def student_dashboard(request):
     start_of_week = get_week_start()
 
     checkin, created = DailyCheckIn.objects.get_or_create(student=request.user, date=today)
-    exercises = Exercise.objects.all().order_by('order')
-    total_exercises = exercises.count()
+    
+    # 分开查询普通练习和进阶练习
+    normal_exercises = Exercise.objects.filter(is_advanced=False).order_by('order')
+    advanced_exercises = Exercise.objects.filter(is_advanced=True).order_by('order')
+    
+    # 打卡只计算普通练习
+    total_exercises = normal_exercises.count()
 
     daily_records = PracticeRecord.objects.filter(
         student=request.user,
         submitted_at__date=today
     )
     completed_ids = set(daily_records.values_list('exercise_id', flat=True))
+    
+    # 普通练习完成数
+    normal_completed_count = sum(1 for e in normal_exercises if e.id in completed_ids)
+    # 进阶练习完成数
+    advanced_completed_count = sum(1 for e in advanced_exercises if e.id in completed_ids)
 
-    all_done = len(completed_ids) >= total_exercises and total_exercises > 0
+    all_done = normal_completed_count >= total_exercises and total_exercises > 0
 
     is_submitted_to_teacher = DailyCheckIn.objects.filter(
         student=request.user,
@@ -193,10 +203,13 @@ def student_dashboard(request):
     buddy_info = get_buddy_info(request.user)
 
     context = {
-        'exercises': exercises,
+        'normal_exercises': normal_exercises,
+        'advanced_exercises': advanced_exercises,
         'completed_ids': completed_ids,
-        'completed_count': len(completed_ids),
+        'completed_count': normal_completed_count,
         'total_count': total_exercises,
+        'advanced_completed_count': advanced_completed_count,
+        'advanced_total_count': advanced_exercises.count(),
         'all_done': all_done,
         'is_submitted_to_teacher': is_submitted_to_teacher,
         'checkin_id': checkin.id,

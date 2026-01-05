@@ -7,7 +7,9 @@ from .models import (
 # 1. 练习管理
 @admin.register(Exercise)
 class ExerciseAdmin(admin.ModelAdmin):
-    list_display = ('title', 'order')
+    list_display = ('title', 'order', 'is_advanced')
+    list_editable = ('order', 'is_advanced')
+    list_filter = ('is_advanced',)
 
 # 2. 录音内联显示 (嵌在打卡本里)
 class PracticeRecordInline(admin.TabularInline):

@@ -328,8 +328,10 @@
             {% endif %}
         </div>
 
+        <!-- 普通练习区 -->
         <div class="list-area">
-            {% for exercise in exercises %}
+            <div style="font-weight:600; color:#666; margin-bottom:10px; font-size:0.9rem;">📖 必练项目</div>
+            {% for exercise in normal_exercises %}
                 <a href="{% url 'exercise_detail' exercise.id %}" class="exercise-card {% if exercise.id in completed_ids %}done{% else %}todo{% endif %}">
                     <div class="exercise-info">
                         <h5 class="mb-1">{{ exercise.title }}</h5>
@@ -343,6 +345,28 @@
                 </a>
             {% endfor %}
         </div>
+        
+        <!-- 进阶练习区 -->
+        {% if advanced_exercises %}
+        <div class="list-area" style="margin-top:25px;">
+            <div style="font-weight:600; color:#d4af37; margin-bottom:10px; font-size:0.9rem;">
+                🌟 进阶练习 <span style="font-weight:400; color:#999; font-size:0.8rem;">(不计入打卡，可获经验)</span>
+            </div>
+            {% for exercise in advanced_exercises %}
+                <a href="{% url 'exercise_detail' exercise.id %}" class="exercise-card {% if exercise.id in completed_ids %}done{% else %}todo{% endif %}" style="border-left: 3px solid #d4af37;">
+                    <div class="exercise-info">
+                        <h5 class="mb-1">{{ exercise.title }}</h5>
+                        <small>点击进入练习</small>
+                    </div>
+                    {% if exercise.id in completed_ids %}
+                        <span class="status-badge badge-done"><span style="font-size:1.2em; vertical-align:middle;">✓</span> 已完成</span>
+                    {% else %}
+                        <span class="status-badge badge-todo" style="background: rgba(212,175,55,0.1); color: #d4af37;">选做</span>
+                    {% endif %}
+                </a>
+            {% endfor %}
+        </div>
+        {% endif %}
 
         <div class="action-area text-center">
 

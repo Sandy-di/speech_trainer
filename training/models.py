@@ -3,15 +3,18 @@ from django.contrib.auth.models import User
 from ckeditor_uploader.fields import RichTextUploadingField
 import datetime
 
-# 1. 练习内容模型 (保持不变)
+# 1. 练习内容模型
 class Exercise(models.Model):
     title = models.CharField("练习标题", max_length=200)
     content = RichTextUploadingField("练习图文内容", default="")
     demo_audio = models.FileField("示范音频", upload_to='exercise_demos/', blank=True, null=True)
     order = models.IntegerField("排序", default=1)
+    is_advanced = models.BooleanField("进阶练习", default=False, 
+        help_text="勾选后此练习不计入每日打卡，但仍给经验值")
 
     def __str__(self):
-        return self.title
+        prefix = "【进阶】" if self.is_advanced else ""
+        return f"{prefix}{self.title}"
     class Meta:
         verbose_name = "练习项目"
         verbose_name_plural = "练习项目"
